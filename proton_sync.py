@@ -26,7 +26,7 @@ Variable d'environnement :
     PROTON_DRIVE_CLI   chemin vers le binaire proton-drive
                         (par défaut : ~/Logiciels/Proton-drive/proton-drive)
 """
-__version__ = "1.6.4"   # version propre à CE fichier ; incrémentée quand il change (indépendant de GitHub)
+__version__ = "1.6.5"   # version propre à CE fichier ; incrémentée quand il change (indépendant de GitHub)
 
 import argparse
 import atexit
@@ -2254,8 +2254,15 @@ def main():
         sys.exit(1)
 
     if not os.path.exists(CLI):
+        # Explication PARTAGÉE avec le GUI (config.cli_missing_explanation) :
+        # l'ancien texte ne parlait que de PROTON_DRIVE_CLI, alors qu'un
+        # utilisateur du GUI n'a pas besoin de cette variable — le champ de la
+        # fenêtre Configuration lui suffit. Trois messages divergents pour un
+        # même problème, c'était le défaut.
         print(_("❌ proton-drive binary not found at {p}").format(p=CLI))
-        print(_("   Adjust the PROTON_DRIVE_CLI environment variable if needed."))
+        if _HAS_CONFIG:
+            for line in appconfig.cli_missing_explanation()[1:]:
+                print(("   " + line) if line else "")
         sys.exit(1)
 
     # Vérification d'authentification AVANT tout traitement. Si le trousseau
@@ -2269,14 +2276,26 @@ def main():
     # passage ; un vrai verrouillage, lui, persiste sur les deux essais.
     ok, auth_err = check_auth_settled()
     if not ok:
+        # DEUX hypothèses, jamais une seule affirmée : la sonde check_auth()
+        # exécute `filesystem list /`, un VRAI appel réseau à Proton. Elle
+        # échoue donc aussi bien sur un trousseau verrouillé que sur une panne
+        # de service ou une coupure réseau. Le message n'affirmait que la
+        # première cause ; en production, le 30 juillet, une panne Proton a
+        # produit ce message entre deux dossiers synchronisés avec succès —
+        # il envoyait rouvrir une session déjà ouverte. La ligne « CLI detail »
+        # ci-dessous est la seule qui départage : elle doit rester visible.
         print("⚠ [auth-failed] " + _("Proton Drive authentication impossible — pass skipped."))
-        print(_("   Likely cause: the graphical session is not open, so the"))
-        print(_("   secrets keyring is locked and the CLI cannot read its"))
-        print(_("   credentials."))
+        print(_("   Two possible causes:"))
+        print(_("   1. the graphical session is not open, so the secrets"))
+        print(_("      keyring is locked and the CLI cannot read its credentials;"))
+        print(_("   2. Proton is unreachable (service outage or network), since"))
+        print(_("      this check performs a real request to Proton Drive."))
         if auth_err:
             print(_("   CLI detail: {e}").format(e=auth_err))
         print(_("   (This is not a serious error: the next run will retry."))
-        print(_("    Open this user's session to unlock the keyring.)"))
+        print(_("    If the session is already open, look at the CLI detail"))
+        print(_("    above before reconnecting: a temporary outage resolves"))
+        print(_("    itself.)"))
         sys.exit(2)
 
     mappings, global_ex = load_config(args.config)

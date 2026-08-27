@@ -12,7 +12,7 @@ Usage :
     python3 proton_mapping_editor.py                # ouvre un sélecteur de fichier
     python3 proton_mapping_editor.py mappings-user1.json
 """
-__version__ = "1.17.6"   # version propre à CE fichier ; incrémentée quand il change (indépendant de GitHub)
+__version__ = "1.18.2"   # version propre à CE fichier ; incrémentée quand il change (indépendant de GitHub)
 
 import json
 import os
@@ -1035,6 +1035,14 @@ class MappingEditor(tk.Tk):
         # l'affichage de la fenêtre. None = pas encore connu.
         self._cli_shared_delete = None
         self._cli_probe_q = queue.Queue()
+        # Binaire du CLI absent : contrôle INSTANTANÉ (os.path.exists), donc pas
+        # de fil ni de file — inutile d'appliquer ici le motif de la sonde de
+        # version, qui existe parce qu'elle EXÉCUTE le binaire. Différé par
+        # after() : le dialogue prend un grab, et une fenêtre pas encore
+        # affichée ne peut pas en recevoir. Sans binaire, RIEN ne fonctionne
+        # (ni synchro, ni connexion, ni amorçage) — mais l'édition des mappings
+        # reste possible, donc on informe sans jamais fermer l'application.
+        self.after(400, self._check_cli_present_at_startup)
         self._start_cli_version_probe()
 
         # Détection automatique de l'état d'authentification Proton, en arrière-plan
@@ -1134,6 +1142,35 @@ class MappingEditor(tk.Tk):
                 pass
             return ok
 
+    def _check_cli_present_at_startup(self):
+        """Prévient si le binaire `proton-drive` est introuvable, et propose
+        d'ouvrir la Configuration pour le régler.
+
+        Le texte vient de config.cli_missing_explanation() — la MÊME source que
+        le message du moteur, pour que les deux ne divergent jamais. Motivation :
+        un utilisateur avait déposé le binaire dans un dossier de son choix en
+        s'attendant à ce que l'application l'y trouve ; le GUI ne disait alors
+        que « check its path », sans indiquer ni où il cherchait, ni que la
+        fenêtre Configuration comporte un champ pour cela.
+
+        Ne s'affiche qu'une fois par lancement, et n'empêche jamais de
+        travailler : on peut éditer ses mappings sans binaire.
+        """
+        try:
+            if os.path.exists(DEFAULT_CLI):
+                return
+            if not _HAS_CONFIG:
+                return
+            msg = "\n".join(appconfig.cli_missing_explanation())
+            if dlg_confirm(self, msg, title=_("Proton CLI not found"),
+                           kind="warning",
+                           ok_text=_("Open Configuration…"),
+                           cancel_text=_("Later")):
+                self.on_configuration()
+        except Exception:
+            # Un avis ne doit jamais empêcher l'application de démarrer.
+            pass
+
     def _start_cli_version_probe(self):
         """Lance la sonde de version du CLI dans un FIL SÉPARÉ, puis scrute le
         résultat depuis le fil principal. Tk n'étant pas thread-safe (et `after()`
@@ -1220,6 +1257,17 @@ class MappingEditor(tk.Tk):
                     "validated here.\n\nYou can quit to reinstall {t}, or "
                     "continue at your own risk.").format(v=version, t=tested)
         else:
+            # Version indéterminable ET binaire absent : NE RIEN DIRE ICI.
+            # _check_cli_present_at_startup a déjà affiché un dialogue complet
+            # (les trois emplacements cherchés, plus un bouton qui ouvre la
+            # Configuration). En enchaîner un second parlerait d'un « problème
+            # de version » là où il n'y a pas de binaire du tout : deux
+            # dialogues empilés pour une seule cause, dont le second est
+            # trompeur. Quand le binaire EST là mais que la version reste
+            # illisible, l'avertissement garde en revanche tout son sens.
+            if not os.path.exists(DEFAULT_CLI):
+                self._maybe_disable_rename_ext()
+                return
             msg = _("The Proton CLI version could not be determined. This "
                     "application was tested with {t}.\n\nYou can quit to check "
                     "your installation, or continue at your own risk."
@@ -1269,6 +1317,23 @@ class MappingEditor(tk.Tk):
             # un faux « session expirée ». On ne touche donc PAS à l'indicateur
             # pendant un passage (le succès du passage le corrigera à la fin).
             if self._sync_in_progress():
+                return
+            # Binaire absent : la sonde ne peut RIEN dire de la session. Elle
+            # échoue faute de CLI à exécuter, pas parce que le jeton a expiré —
+            # peindre « session expirée » enverrait l'utilisateur se reconnecter
+            # pour un problème qui n'a aucun rapport, et le bouton de connexion
+            # échouerait à son tour. On nomme la vraie cause et on renvoie vers
+            # le champ qui la corrige.
+            if not os.path.exists(DEFAULT_CLI):
+                def apply_missing():
+                    if hasattr(self, "auth_status"):
+                        self.auth_status.set("🔑 " + _("Proton CLI not found"))
+                        self.auth_label.config(foreground="#d2294b")
+                    if hasattr(self, "status"):
+                        self.status.set(_("Proton CLI binary not found — open "
+                                          "“⚙ Configuration…” to set its path."))
+                        self._auth_error_in_status = True
+                self._ui(apply_missing)
                 return
             ok = self._check_auth_settled()
             if ok is None:
@@ -4253,7 +4318,8 @@ class MappingEditor(tk.Tk):
                        _("You are launching a sync with “Propagate deletions”.\n\n"
                        "For the mappings that allow deletion, what was deleted "
                        "locally will be sent to the Proton trash "
-                       "(recoverable for 30 days).\n\n"
+                       "(recoverable for 30 days; the trash does not empty "
+                       "itself).\n\n"
                        "Tip: a “Test (dry-run)” first shows what would be "
                        "deleted.\n\nRun?"))
                 kind = "question"
@@ -5122,7 +5188,8 @@ class ScheduleDialog(tk.Toplevel):
                 "AUTOMATICALLY propagate local deletions to Proton (according "
                 "to each mapping's settings), without intervention.\n\n"
                 "Safety nets: a several-hour window before execution, and the "
-                "Proton trash for 30 days (mappings in trash mode).\n\n"
+                "Proton trash for 30 days (mappings in trash mode). Note that "
+                "the trash never empties itself: purge it to reclaim space.\n\n"
                 "Make sure you have tested --delete manually first. "
                 "Continue?"),
                 title=_("Enable automatic deletions?"), kind="warning",

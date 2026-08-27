@@ -33,7 +33,7 @@ from a deployment):
     except ImportError:
         appconfig = None   # callers fall back to their own built-in defaults
 """
-__version__ = "1.3.0"   # version propre à CE fichier ; incrémentée quand il change (indépendant de GitHub)
+__version__ = "1.4.0"   # version propre à CE fichier ; incrémentée quand il change (indépendant de GitHub)
 
 import json
 import os
@@ -494,6 +494,41 @@ def resolve_proton_cli():
     if configured:
         return configured
     return os.path.join(APP_DIR, "proton-drive")
+
+
+def cli_missing_explanation():
+    """Explication à donner quand le binaire `proton-drive` est INTROUVABLE.
+
+    Rend une liste de lignes (pas une chaîne) : le moteur les imprime telles
+    quelles sur sa sortie, le GUI les assemble dans un dialogue. Le TEXTE est
+    ainsi écrit à un seul endroit — sinon les trois formulations divergent, ce
+    qui était précisément le défaut constaté : le moteur ne parlait que de la
+    variable d'environnement, le GUI se contentait de « check its path », et
+    l'information complète ne vivait que dans un tableau de réglages du README,
+    à un endroit où personne ne la cherche en installant.
+
+    L'ordre annoncé est EXACTEMENT celui de resolve_proton_cli() ci-dessus —
+    ne jamais décrire ici un ordre qui ne serait pas celui du code.
+    """
+    return [
+        _("The Proton Drive CLI binary was not found."),
+        "",
+        _("This application does not perform the sync itself: it drives the "
+          "official `proton-drive` binary, which you download separately. It "
+          "does not search the system for it — it looks in this order:"),
+        "",
+        _("  1. the PROTON_DRIVE_CLI environment variable, if set;"),
+        _("  2. the “Proton CLI binary path” field in the Configuration window;"),
+        _("  3. failing that: {p}").format(p=os.path.join(APP_DIR, "proton-drive")),
+        "",
+        _("Simplest fix: place the binary next to the scripts, at the third "
+          "location above — nothing to configure. To keep it elsewhere, fill "
+          "in the Configuration field."),
+        "",
+        _("If you change this path AFTER installing the services, reinstall "
+          "them: generated systemd units embed the path when created, and "
+          "would otherwise keep pointing at the old one."),
+    ]
 
 
 def cli_env_value(default_template):

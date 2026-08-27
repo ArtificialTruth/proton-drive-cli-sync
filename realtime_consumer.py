@@ -24,7 +24,7 @@ Principes (décidés en conception) :
 
 Un démon par utilisateur (sa session, son trousseau, ses mappings).
 """
-__version__ = "1.5.2"   # version propre à CE fichier ; incrémentée quand il change (indépendant de GitHub)
+__version__ = "1.5.3"   # version propre à CE fichier ; incrémentée quand il change (indépendant de GitHub)
 
 import os
 import sys
@@ -311,6 +311,12 @@ def find_mapping_for_path(path, mappings):
 # Il ne bloque personne (le consommateur passe au suivant) et le passage planifié
 # le rattrape de toute façon.
 STABILITY_LOG_AFTER = 3
+
+# Lignes de la sortie du moteur recopiées au journal en cas d'échec. Les échecs
+# d'authentification (code 2) ont droit à plus : leur message est plus long et
+# sa ligne la plus utile (« CLI detail ») arrive en cinquième position.
+ENGINE_OUTPUT_LINES = 3
+ENGINE_OUTPUT_LINES_AUTH = 8
 
 
 def _folder_signature(path):
@@ -714,7 +720,7 @@ def process_ready(state, target_dir, mappings, config_path, log, runner=None):
         state.clear(target_dir)
         state.mark_cold(target_dir, time.monotonic())
         log(_("    ⏳ cold folder — deferred to the scheduled pass "
-              "(real-time does not build the cache)"))
+              "(its parent folder is not indexed yet)"))
         return False
     elif code == 4:
         # COMPTE Proton changé : le cache appartient à l'ancien compte — le
@@ -738,7 +744,16 @@ def process_ready(state, target_dir, mappings, config_path, log, runner=None):
         state.clear(target_dir)
         log(_("    ✗ failure (code {c}) — markers kept for retry").format(c=code))
         if output:
-            for line in output.strip().splitlines()[:3]:
+            # Combien de lignes de la sortie moteur on recopie au journal.
+            # Le message d'échec d'authentification (code 2) en fait SEPT, dont
+            # la ligne « CLI detail : … » — la SEULE qui dise ce que le CLI a
+            # réellement répondu, donc la seule qui permette de distinguer un
+            # trousseau verrouillé d'une panne de service Proton. L'ancienne
+            # limite de 3 la coupait systématiquement : on ne voyait que la
+            # cause SUPPOSÉE, jamais la cause réelle (constaté en production le
+            # 30 juillet pendant une panne Proton).
+            limit = ENGINE_OUTPUT_LINES_AUTH if code == 2 else ENGINE_OUTPUT_LINES
+            for line in output.strip().splitlines()[:limit]:
                 log(f"      {line}")
         return False
 
