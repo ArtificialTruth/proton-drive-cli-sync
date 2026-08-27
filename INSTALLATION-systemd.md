@@ -23,6 +23,27 @@ corruption.
 
 ---
 
+## Before you start: where to put the Proton CLI binary
+
+This application does not perform the sync itself: it drives the official
+`proton-drive` binary, which you download separately. **It does not search the
+system for it** — it resolves it in this order:
+
+1. the `PROTON_DRIVE_CLI` environment variable, if set;
+2. the **"Proton CLI binary path"** field in the GUI's **Configuration** window;
+3. failing that: `<scripts folder>/proton-drive`.
+
+**Simplest option**: drop the binary **next to the scripts** (case 3) — nothing to
+configure. To keep it elsewhere, fill in the Configuration field; there is no need
+to deal with an environment variable.
+
+> **If you change this path AFTER installing the services**, reinstall them
+> ("Install / Update" button, or by regenerating the units by hand): systemd units
+> embed the path **when they are created** and would otherwise keep pointing at the
+> old location.
+
+---
+
 ## Manual installation (fallback) — for EACH user (User1, then User2)
 
 The commands below must be run **inside the relevant user's session** (logged in

@@ -334,9 +334,38 @@ Ce double niveau est délibéré : le JSON déclare l'intention, la ligne de com
 
 **Pas de garde-fou anti-suppression-massive** : choix délibéré. Une suppression locale est considérée comme intentionnelle, et la fenêtre entre deux passages (synchro ponctuelle, pas continue) + la corbeille 30 j suffisent comme filets. Le seul garde-fou est celui du montage (panne technique, pas décision humaine).
 
+> **La corbeille ne se vide pas toute seule.** Les 30 jours sont une fenêtre de **récupération des fichiers**, pas une libération automatique de l'espace : passé ce délai, rien ne disparaît de soi-même. Sans vidage manuel, la corbeille accumule indéfiniment tout ce que les passages `--delete` y envoient, et l'espace du forfait se remplit de fichiers périmés. Voir « [Vider la corbeille Proton](#vider-la-corbeille-proton) ».
+
 **Mappings `file`** : un mapping de type fichier unique dont la source disparaît localement voit sa copie distante supprimée aussi (si `--delete` + `allow_delete`). Pour garder un fichier sur Proton tout en le retirant du NAS : retirer son entrée de mapping avant le prochain passage (l'ordre des opérations entre deux passages n'a pas d'importance).
 
 **Test recommandé avant d'activer** : toujours un `--delete --dry-run` d'abord pour voir ce qui serait supprimé, sans rien effacer.
+
+### Vider la corbeille Proton
+
+La corbeille Proton **ne se vide jamais d'elle-même**. Les 30 jours annoncés sont la
+durée pendant laquelle un fichier reste **récupérable** — pas un délai au bout duquel
+l'espace se libère. Tant qu'on ne la vide pas, tout ce que les passages `--delete`
+y envoient continue d'occuper l'espace du forfait.
+
+Sur un usage de sauvegarde, cela s'accumule vite : chaque fichier modifié part lui
+aussi à la corbeille avant d'être remplacé par sa nouvelle version.
+
+**La voie normale — l'interface Proton.** Depuis le web ou l'application, la
+corbeille permet de **choisir** ce qu'on supprime définitivement, et de récupérer ce
+qu'on veut garder. C'est la méthode recommandée : on voit ce qu'on efface avant de
+l'effacer.
+
+> **En ligne de commande, pour un usage automatisé :** le CLI expose
+> `proton-drive filesystem empty-trash`.
+>
+> ⚠ Cette commande ne prend **aucun chemin** : elle vide la corbeille **entière du
+> compte**, y compris les fichiers que vous y avez mis vous-même depuis l'interface
+> web, sans rapport avec les sauvegardes. Il n'y a pas de retour en arrière. Ne
+> l'utilisez que si vous savez que la corbeille ne contient rien d'autre à
+> conserver.
+
+Cette application n'automatise volontairement pas ce vidage : elle envoie à la
+corbeille, elle ne décide pas de la purger.
 
 ### Journal en temps réel
 
@@ -637,7 +666,7 @@ Le service systemd lance le moteur AVEC `--delete` :
 ```
 ExecStart=/usr/bin/python3 %h/Logiciels/Proton-drive/proton_sync.py %h/Logiciels/Proton-drive/mappings-user1.json --delete
 ```
-Conséquence : le passage de 3h devient un vrai miroir. Ce qui est supprimé localement disparaît de Proton la nuit suivante (selon le `delete_mode` de chaque mapping, et sous réserve du garde-fou de montage). Filets de sécurité : la fenêtre de plusieurs heures avant 3h pour réaliser une erreur, plus la corbeille Proton 30 j (pour les mappings en mode `trash`).
+Conséquence : le passage de 3h devient un vrai miroir. Ce qui est supprimé localement disparaît de Proton la nuit suivante (selon le `delete_mode` de chaque mapping, et sous réserve du garde-fou de montage). Filets de sécurité : la fenêtre de plusieurs heures avant 3h pour réaliser une erreur, plus la corbeille Proton 30 j (pour les mappings en mode `trash`) — corbeille qu'il faut **vider soi-même** pour récupérer l'espace.
 
 Pour basculer de A vers B : éditer `~/.config/systemd/user/proton-sync.service`, ajouter `--delete` à la fin de la ligne `ExecStart`, puis :
 ```bash

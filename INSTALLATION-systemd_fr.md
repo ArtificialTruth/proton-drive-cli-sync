@@ -23,6 +23,28 @@ lendemain — aucun blocage, aucune corruption.
 
 ---
 
+## Avant de commencer : où placer le binaire du CLI Proton
+
+L'application n'exécute pas la synchro elle-même : elle pilote le binaire officiel
+`proton-drive`, que vous téléchargez séparément. **Elle ne le cherche pas sur le
+système** — elle le résout dans cet ordre :
+
+1. la variable d'environnement `PROTON_DRIVE_CLI`, si elle est définie ;
+2. le champ **« Chemin du binaire proton-drive »** de la fenêtre **Configuration**
+   du GUI ;
+3. à défaut : `<dossier des scripts>/proton-drive`.
+
+**Le plus simple** : déposer le binaire **à côté des scripts** (cas 3) — il n'y a
+alors rien à régler. Pour le garder ailleurs, renseignez le champ de la fenêtre
+Configuration ; inutile de manipuler une variable d'environnement.
+
+> **Si vous changez ce chemin APRÈS avoir installé les services**, réinstallez-les
+> (bouton « Installer / Mettre à jour », ou en régénérant les unités à la main) :
+> les unités systemd embarquent le chemin **au moment de leur création** et
+> continueraient sinon à pointer sur l'ancien emplacement.
+
+---
+
 ## Installation manuelle (repli) — pour CHAQUE utilisateur (User1, puis User2)
 
 Les commandes ci-dessous sont à exécuter **dans la session de l'utilisateur

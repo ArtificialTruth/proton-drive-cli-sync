@@ -334,9 +334,36 @@ This double level is deliberate: the JSON declares the intent, the command line 
 
 **No mass-deletion guard**: a deliberate choice. A local deletion is considered intentional, and the window between two passes (point-in-time sync, not continuous) plus the 30-day trash are sufficient safety nets. The only guard is the mount one (technical failure, not human decision).
 
+> **The trash does not empty itself.** Those 30 days are a window to **recover files**, not an automatic reclaim of space: nothing disappears on its own once the delay is over. Without a manual purge, the trash keeps everything `--delete` passes send to it, and your plan's storage fills up with stale files. See "[Emptying the Proton trash](#emptying-the-proton-trash)".
+
 **`file` mappings**: a single-file mapping whose source disappears locally sees its remote copy deleted too (if `--delete` + `allow_delete`). To keep a file on Proton while removing it from the NAS: remove its mapping entry before the next pass (the order of operations between two passes doesn't matter).
 
 **Recommended test before enabling**: always run `--delete --dry-run` first to see what would be deleted, without erasing anything.
+
+### Emptying the Proton trash
+
+The Proton trash **never empties itself**. The 30 days you see quoted are how long a
+file stays **recoverable** — not a delay after which space is reclaimed. Until you
+empty it, everything `--delete` passes send there keeps taking up your plan's
+storage.
+
+In a backup workflow this piles up quickly: every modified file is also sent to the
+trash before being replaced by its new version.
+
+**The normal route — the Proton interface.** From the web app or the desktop app,
+the trash lets you **choose** what to delete for good, and restore anything you want
+to keep. This is the recommended method: you see what you erase before erasing it.
+
+> **From the command line, for automated use:** the CLI exposes
+> `proton-drive filesystem empty-trash`.
+>
+> ⚠ This command takes **no path**: it empties the **entire account trash**,
+> including files you put there yourself from the web interface, unrelated to your
+> backups. There is no undo. Only use it when you know the trash holds nothing else
+> worth keeping.
+
+This application deliberately does not automate that purge: it sends items to the
+trash, it does not decide to empty it.
 
 ### Real-time logging
 
@@ -637,7 +664,7 @@ The systemd service launches the engine WITH `--delete`:
 ```
 ExecStart=/usr/bin/python3 %h/Logiciels/Proton-drive/proton_sync.py %h/Logiciels/Proton-drive/mappings-user1.json --delete
 ```
-Consequence: the 3 am pass becomes a true mirror. What is deleted locally disappears from Proton the following night (according to each mapping's `delete_mode`, and subject to the mount guard). Safety nets: the several-hour window before 3 am to notice a mistake, plus the 30-day Proton trash (for mappings in `trash` mode).
+Consequence: the 3 am pass becomes a true mirror. What is deleted locally disappears from Proton the following night (according to each mapping's `delete_mode`, and subject to the mount guard). Safety nets: the several-hour window before 3 am to notice a mistake, plus the 30-day Proton trash (for mappings in `trash` mode) — a trash you must **empty yourself** to reclaim the space.
 
 To switch from A to B: edit `~/.config/systemd/user/proton-sync.service`, append `--delete` to the `ExecStart` line, then:
 ```bash
