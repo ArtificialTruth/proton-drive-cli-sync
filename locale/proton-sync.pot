@@ -302,19 +302,7 @@ msgstr ""
 msgid "   (If you are sure no other instance is running, delete this file.)"
 msgstr ""
 
-msgid "   Adjust the PROTON_DRIVE_CLI environment variable if needed."
-msgstr ""
-
 msgid "Proton Drive authentication impossible — pass skipped."
-msgstr ""
-
-msgid "   Likely cause: the graphical session is not open, so the"
-msgstr ""
-
-msgid "   secrets keyring is locked and the CLI cannot read its"
-msgstr ""
-
-msgid "   credentials."
 msgstr ""
 
 #, python-brace-format
@@ -322,9 +310,6 @@ msgid "   CLI detail: {e}"
 msgstr ""
 
 msgid "   (This is not a serious error: the next run will retry."
-msgstr ""
-
-msgid "    Open this user's session to unlock the keyring.)"
 msgstr ""
 
 #, python-brace-format
@@ -492,11 +477,6 @@ msgid "    🚫 excluded (name filtered) — nothing to sync"
 msgstr ""
 
 msgid "    ✓ ok"
-msgstr ""
-
-msgid ""
-"    ⏳ cold folder — deferred to the scheduled pass (real-time does not "
-"build the cache)"
 msgstr ""
 
 msgid ""
@@ -2178,17 +2158,6 @@ msgid ""
 "Run anyway?"
 msgstr ""
 
-msgid ""
-"You are launching a sync with “Propagate deletions”.\n"
-"\n"
-"For the mappings that allow deletion, what was deleted locally will be sent "
-"to the Proton trash (recoverable for 30 days).\n"
-"\n"
-"Tip: a “Test (dry-run)” first shows what would be deleted.\n"
-"\n"
-"Run?"
-msgstr ""
-
 msgid "Confirm deletion propagation"
 msgstr ""
 
@@ -2590,17 +2559,6 @@ msgstr ""
 
 #, python-brace-format
 msgid "Daily at {h}:00"
-msgstr ""
-
-msgid ""
-"You are enabling Option B: the scheduled sync will AUTOMATICALLY propagate "
-"local deletions to Proton (according to each mapping's settings), without "
-"intervention.\n"
-"\n"
-"Safety nets: a several-hour window before execution, and the Proton trash "
-"for 30 days (mappings in trash mode).\n"
-"\n"
-"Make sure you have tested --delete manually first. Continue?"
 msgstr ""
 
 msgid "Enable automatic deletions?"
@@ -3060,4 +3018,100 @@ msgid "OK: {l} ↔ {n} match and the real-time chain works end to end."
 msgstr ""
 
 msgid "The NAS mount point cannot be empty when a NAS is enabled."
+msgstr ""
+
+msgid "The Proton Drive CLI binary was not found."
+msgstr ""
+
+msgid ""
+"This application does not perform the sync itself: it drives the official "
+"`proton-drive` binary, which you download separately. It does not search the "
+"system for it — it looks in this order:"
+msgstr ""
+
+msgid "  1. the PROTON_DRIVE_CLI environment variable, if set;"
+msgstr ""
+
+msgid "  2. the “Proton CLI binary path” field in the Configuration window;"
+msgstr ""
+
+msgid ""
+"Simplest fix: place the binary next to the scripts, at the third location "
+"above — nothing to configure. To keep it elsewhere, fill in the "
+"Configuration field."
+msgstr ""
+
+msgid ""
+"If you change this path AFTER installing the services, reinstall them: "
+"generated systemd units embed the path when created, and would otherwise "
+"keep pointing at the old one."
+msgstr ""
+
+#, python-brace-format
+msgid "  3. failing that: {p}"
+msgstr ""
+
+msgid "Proton CLI not found"
+msgstr ""
+
+msgid "Open Configuration…"
+msgstr ""
+
+msgid "Later"
+msgstr ""
+
+msgid ""
+"You are enabling Option B: the scheduled sync will AUTOMATICALLY propagate "
+"local deletions to Proton (according to each mapping's settings), without "
+"intervention.\n"
+"\n"
+"Safety nets: a several-hour window before execution, and the Proton trash "
+"for 30 days (mappings in trash mode). Note that the trash never empties "
+"itself: purge it to reclaim space.\n"
+"\n"
+"Make sure you have tested --delete manually first. Continue?"
+msgstr ""
+
+msgid ""
+"You are launching a sync with “Propagate deletions”.\n"
+"\n"
+"For the mappings that allow deletion, what was deleted locally will be sent "
+"to the Proton trash (recoverable for 30 days; the trash does not empty "
+"itself).\n"
+"\n"
+"Tip: a “Test (dry-run)” first shows what would be deleted.\n"
+"\n"
+"Run?"
+msgstr ""
+
+msgid "   Two possible causes:"
+msgstr ""
+
+msgid "   1. the graphical session is not open, so the secrets"
+msgstr ""
+
+msgid "      keyring is locked and the CLI cannot read its credentials;"
+msgstr ""
+
+msgid "   2. Proton is unreachable (service outage or network), since"
+msgstr ""
+
+msgid "      this check performs a real request to Proton Drive."
+msgstr ""
+
+msgid "    If the session is already open, look at the CLI detail"
+msgstr ""
+
+msgid "    above before reconnecting: a temporary outage resolves"
+msgstr ""
+
+msgid "    itself.)"
+msgstr ""
+
+msgid ""
+"    ⏳ cold folder — deferred to the scheduled pass (its parent folder is "
+"not indexed yet)"
+msgstr ""
+
+msgid "Proton CLI binary not found — open “⚙ Configuration…” to set its path."
 msgstr ""
