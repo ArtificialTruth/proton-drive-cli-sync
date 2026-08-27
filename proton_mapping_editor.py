@@ -12,7 +12,7 @@ Usage :
     python3 proton_mapping_editor.py                # ouvre un sélecteur de fichier
     python3 proton_mapping_editor.py mappings-user1.json
 """
-__version__ = "1.19.0"   # version propre à CE fichier ; incrémentée quand il change (indépendant de GitHub)
+__version__ = "1.19.1"   # version propre à CE fichier ; incrémentée quand il change (indépendant de GitHub)
 
 import json
 import os
@@ -3522,39 +3522,57 @@ class MappingEditor(tk.Tk):
             ttk.Label(pm_head, text=_("NAS data-path correspondence:")).pack(side="left")
             help_btn(pm_head, "nas-path-map")
 
-            # En-têtes de colonnes.
-            pm_cols = ttk.Frame(nas_frame); pm_cols.pack(anchor="w", fill="x", pady=(2, 0))
-            ttk.Label(pm_cols, text=_("Seen on this machine (desktop)"),
-                      font=("", 8)).grid(row=0, column=0, sticky="w", padx=(0, 6))
-            ttk.Label(pm_cols, text=_("Seen on the NAS"),
-                      font=("", 8)).grid(row=0, column=1, sticky="w", padx=(0, 6))
+            # En-têtes ET lignes dans UNE SEULE grille.
+            #
+            # Auparavant les en-têtes vivaient dans leur propre cadre et les
+            # lignes dans un autre : deux grilles indépendantes que Tk n'a
+            # aucune raison d'aligner entre elles. Le titre « Vu sur le NAS »
+            # se retrouvait au-dessus du bouton 📁 plutôt qu'au-dessus de son
+            # champ, et le décalage n'apparaissait qu'une fois une
+            # correspondance ajoutée — sans ligne, il n'y a rien à comparer.
+            #
+            # Une grille unique aligne les colonnes PAR CONSTRUCTION, quelle
+            # que soit la largeur réelle des champs : plus rien à tenir en
+            # phase à la main.
+            pm_grid = ttk.Frame(nas_frame)
+            pm_grid.pack(anchor="w", fill="x", pady=(2, 0))
+            ttk.Label(pm_grid, text=_("Seen on this machine (desktop)"),
+                      font=("", 8)).grid(row=0, column=0, sticky="w", padx=(0, 4))
+            ttk.Label(pm_grid, text=_("Seen on the NAS"),
+                      font=("", 8)).grid(row=0, column=2, sticky="w", padx=(0, 4))
 
-            pm_rows_frame = ttk.Frame(nas_frame)
-            pm_rows_frame.pack(anchor="w", fill="x")
-            pm_rows = []   # liste de dicts {frame, local_var, nas_var}
+            pm_rows = []   # liste de dicts {widgets, local_var, nas_var}
+            pm_next_row = [1]   # rangée 0 = en-têtes ; les lignes suivent
 
             def pm_add_row(local="", nas=""):
-                rf = ttk.Frame(pm_rows_frame); rf.pack(anchor="w", fill="x", pady=2)
+                r = pm_next_row[0]
+                pm_next_row[0] += 1
+                cells = []   # widgets de CETTE rangée, pour la suppression
                 lv = tk.StringVar(value=local)
                 nv = tk.StringVar(value=nas)
-                le = ttk.Entry(rf, textvariable=lv, width=26)
-                le.grid(row=0, column=0, padx=(0, 4))
+                le = ttk.Entry(pm_grid, textvariable=lv, width=26)
+                le.grid(row=r, column=0, padx=(0, 4), pady=2)
+                cells.append(le)
 
                 def browse_local(_v=lv):
                     d = pick_directory(dlg, title=_("Choose a data folder on this machine"))
                     if d:
                         _v.set(d)
-                ttk.Button(rf, text="📁", width=3, command=browse_local).grid(row=0, column=1, padx=(0, 6))
-                ne = ttk.Entry(rf, textvariable=nv, width=24)
-                ne.grid(row=0, column=2, padx=(0, 4))
+                b_loc = ttk.Button(pm_grid, text="📁", width=3, command=browse_local)
+                b_loc.grid(row=r, column=1, padx=(0, 6), pady=2)
+                cells.append(b_loc)
+                ne = ttk.Entry(pm_grid, textvariable=nv, width=24)
+                ne.grid(row=r, column=2, padx=(0, 4), pady=2)
+                cells.append(ne)
 
                 # Point de statut coloré (gris = non testé, puis vert/jaune/rouge).
                 # Pastille de statut dessinée (Canvas) : indépendante de la
                 # police, la couleur est garantie (le glyphe ● n'était pas fiable
                 # dans tous les environnements Tk). Gris = non testé.
-                status = tk.Canvas(rf, width=16, height=16, highlightthickness=0, bd=0)
+                status = tk.Canvas(pm_grid, width=16, height=16, highlightthickness=0, bd=0)
                 _dot_id = status.create_oval(3, 3, 13, 13, fill="#999999", outline="")
-                status.grid(row=0, column=3, padx=(4, 2))
+                status.grid(row=r, column=3, padx=(4, 2), pady=2)
+                cells.append(status)
                 status._dot_id = _dot_id
 
                 def set_dot(color, _c=status):
@@ -3572,7 +3590,7 @@ class MappingEditor(tk.Tk):
                     dlg_info(dlg, last_msg["text"], title=_("Correspondence test"))
                 status.bind("<Button-1>", show_status_msg)
 
-                entry = {"frame": rf, "local_var": lv, "nas_var": nv,
+                entry = {"cells": cells, "local_var": lv, "nas_var": nv,
                          "status": status, "last_msg": last_msg, "color": None}
 
                 def run_test(_e=entry):
@@ -3622,13 +3640,26 @@ class MappingEditor(tk.Tk):
                 lv.trace_add("write", invalidate)
                 nv.trace_add("write", invalidate)
 
-                ttk.Button(rf, text=_("Test"), width=6,
-                           command=run_test).grid(row=0, column=4, padx=(2, 4))
+                b_test = ttk.Button(pm_grid, text=_("Test"), width=6, command=run_test)
+                b_test.grid(row=r, column=4, padx=(2, 4), pady=2)
+                cells.append(b_test)
 
                 def remove_this(_e=entry):
-                    _e["frame"].destroy()
-                    pm_rows.remove(_e)
-                ttk.Button(rf, text="−", width=3, command=remove_this).grid(row=0, column=5)
+                    # En grille PARTAGÉE, il n'y a plus de cadre par ligne à
+                    # détruire : on retire chaque cellule de cette rangée. Les
+                    # rangées suivantes gardent leur indice — Tk laisse
+                    # simplement la rangée vide se refermer, l'alignement des
+                    # colonnes n'en souffre pas.
+                    for w in _e["cells"]:
+                        try:
+                            w.destroy()
+                        except Exception:
+                            pass
+                    if _e in pm_rows:
+                        pm_rows.remove(_e)
+                b_del = ttk.Button(pm_grid, text="−", width=3, command=remove_this)
+                b_del.grid(row=r, column=5, pady=2)
+                cells.append(b_del)
                 pm_rows.append(entry)
                 return entry
 
@@ -3671,7 +3702,7 @@ class MappingEditor(tk.Tk):
                 for e in pm_rows:
                     # Déclenche le test de chaque ligne remplie (chacun dans son thread).
                     if e["local_var"].get().strip() and e["nas_var"].get().strip():
-                        for w in e["frame"].winfo_children():
+                        for w in e["cells"]:
                             if isinstance(w, ttk.Button) and w.cget("text") == _("Test"):
                                 w.invoke()
                                 break
@@ -3706,7 +3737,7 @@ class MappingEditor(tk.Tk):
                 # réglages NAS : sans NAS il n'a aucun sens, or il restait actif
                 # (incohérence). Le bouton d'aide « ? » de l'en-tête reste, lui,
                 # accessible pour pouvoir lire l'explication.
-                for container in (pm_cols, pm_rows_frame, pm_btns):
+                for container in (pm_grid, pm_btns):
                     _set_children_state(container, state)
             nas_var.trace_add("write", sync_mount_state)
             sync_mount_state()
