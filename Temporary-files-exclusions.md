@@ -23,7 +23,7 @@ application trashes and relics from other operating systems.
 
 **Effect at the next `--delete` pass**: a newly excluded file that was already
 uploaded to Proton becomes an "orphan" (present remotely, absent from the local
-list) → it goes to the **Proton trash** (recoverable for 30 days). That's the
+list) → it goes to the **Proton trash** (recoverable until you empty it). That's the
 desired cleanup — just don't let it surprise you.
 
 ---

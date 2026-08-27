@@ -247,7 +247,7 @@ DEUX formats acceptés (rétrocompatibilité) :
 
 **Champs de suppression (optionnels, par mapping)** — voir la section « Propagation des suppressions » plus bas :
 - `allow_delete` : `true`/`false` (absent = false = additif, jamais de suppression). Autorise ce mapping à propager les suppressions locales vers Proton.
-- `delete_mode` : `"trash"` (corbeille Proton, récupérable 30 j) ou `"permanent"` (définitif, irréversible). Le mode du mapping fait foi.
+- `delete_mode` : `"trash"` (corbeille Proton, récupérable tant qu'elle n'est pas vidée) ou `"permanent"` (définitif, irréversible). Le mode du mapping fait foi.
 - `source_kind` : `"nfs"` ou `"local"`. Détecté automatiquement par le GUI, confirmé à l'édition. Sert au garde-fou : une source `nfs` ne supprime que si le montage réseau est vivant.
 
 ### Exclusions
@@ -263,7 +263,7 @@ Deux niveaux qui se cumulent :
 
 Un dossier exclu n'est pas visité du tout (son contenu entier est ignoré). Nuance importante voulue : on n'exclut PAS aveuglément tous les fichiers cachés (commençant par `.`) — un `.config_important` désiré est conservé, tandis qu'un `.caltrash` listé explicitement est exclu.
 
-**Nettoyage automatique avec `--delete`** : un fichier exclu localement mais déjà présent sur Proton (uploadé avant l'ajout de l'exclusion) est vu comme un **orphelin** au prochain passage `--delete` et part à la corbeille Proton (récupérable 30 jours). La **signature du cache intègre une empreinte du jeu d'exclusions** : tout changement d'exclusions périme `delete_synced` et force la réconciliation au passage `--delete` suivant — le nettoyage est donc automatique, sans « Ignorer cache ». Contrepartie : ce premier passage après un changement d'exclusions revérifie tous les dossiers (plus long, une fois), puis les sauts rapides reprennent. À garder en tête : affine tes exclusions si tu veux conserver sur Proton certains fichiers exclus localement — ce qu'on exclut finit par disparaître du backup.
+**Nettoyage automatique avec `--delete`** : un fichier exclu localement mais déjà présent sur Proton (uploadé avant l'ajout de l'exclusion) est vu comme un **orphelin** au prochain passage `--delete` et part à la corbeille Proton (récupérable tant qu'elle n'est pas vidée). La **signature du cache intègre une empreinte du jeu d'exclusions** : tout changement d'exclusions périme `delete_synced` et force la réconciliation au passage `--delete` suivant — le nettoyage est donc automatique, sans « Ignorer cache ». Contrepartie : ce premier passage après un changement d'exclusions revérifie tous les dossiers (plus long, une fois), puis les sauts rapides reprennent. À garder en tête : affine tes exclusions si tu veux conserver sur Proton certains fichiers exclus localement — ce qu'on exclut finit par disparaître du backup.
 
 **Garde-fou en temps réel (`sync_subpath`)** : quand le watcher cible directement un sous-chemin, le moteur teste **chaque segment** du chemin relatif à la racine du mapping — la cible elle-même (`__pycache__`, `logs`) **et ses ancêtres** (`.Trash-1000/info` est sauté parce que `.Trash-1000` matche `.Trash-*`). Le moteur émet alors une ligne portant le **tag stable `[subpath-excluded]`** (indépendant de la langue), que le consommateur détecte pour afficher « 🚫 exclu (nom filtré) — rien à synchroniser » au lieu d'un « ✓ ok » ambigu. Ni upload, ni création distante, ni suppression pour ces chemins.
 
@@ -316,7 +316,7 @@ Par défaut, le moteur est **additif** : il envoie les nouveautés et modificati
 Ce double niveau est délibéré : le JSON déclare l'intention, la ligne de commande active la mécanique. Ça évite qu'une suppression parte par accident (ex. un passage planifié de routine).
 
 **Mode de suppression** — défini par mapping via `delete_mode` :
-- `"trash"` (défaut) : envoi à la corbeille Proton, récupérable 30 jours.
+- `"trash"` (défaut) : envoi à la corbeille Proton, récupérable tant qu'elle n'est pas vidée.
 - `"permanent"` : suppression définitive, irréversible. Le mode du mapping fait foi dès que `--delete` est actif (pas de second flag).
 
 **Garde-fou de montage (`mount_check.py`)** — la protection clé. Avant toute suppression dans un mapping, le moteur vérifie que la source est « saine » selon son `source_kind` :
@@ -332,9 +332,9 @@ Ce double niveau est délibéré : le JSON déclare l'intention, la ligne de com
 - Une suppression locale change l'empreinte du dossier → il est revérifié au prochain `--delete` → l'orphelin est propagé.
 - Un passage SANS `--delete` ne marque pas les dossiers réconciliés → un `--delete` ultérieur rattrapera une suppression faite entre-temps. (Rétrocompatible avec les anciens caches, migrés au vol.)
 
-**Pas de garde-fou anti-suppression-massive** : choix délibéré. Une suppression locale est considérée comme intentionnelle, et la fenêtre entre deux passages (synchro ponctuelle, pas continue) + la corbeille 30 j suffisent comme filets. Le seul garde-fou est celui du montage (panne technique, pas décision humaine).
+**Pas de garde-fou anti-suppression-massive** : choix délibéré. Une suppression locale est considérée comme intentionnelle, et la fenêtre entre deux passages (synchro ponctuelle, pas continue) + la corbeille suffisent comme filets. Le seul garde-fou est celui du montage (panne technique, pas décision humaine).
 
-> **La corbeille ne se vide pas toute seule.** Les 30 jours sont une fenêtre de **récupération des fichiers**, pas une libération automatique de l'espace : passé ce délai, rien ne disparaît de soi-même. Sans vidage manuel, la corbeille accumule indéfiniment tout ce que les passages `--delete` y envoient, et l'espace du forfait se remplit de fichiers périmés. Voir « [Vider la corbeille Proton](#vider-la-corbeille-proton) ».
+> **La corbeille ne se vide pas toute seule.** Un fichier y reste récupérable **aussi longtemps que vous ne la videz pas** — il n'y a aucune purge automatique après un quelconque délai (les 30 jours souvent cités concernent Proton Mail, pas Drive). Sans vidage manuel, la corbeille accumule indéfiniment tout ce que les passages `--delete` y envoient, et l'espace du forfait se remplit de fichiers périmés. Voir « [Vider la corbeille Proton](#vider-la-corbeille-proton) ».
 
 **Mappings `file`** : un mapping de type fichier unique dont la source disparaît localement voit sa copie distante supprimée aussi (si `--delete` + `allow_delete`). Pour garder un fichier sur Proton tout en le retirant du NAS : retirer son entrée de mapping avant le prochain passage (l'ordre des opérations entre deux passages n'a pas d'importance).
 
@@ -342,10 +342,12 @@ Ce double niveau est délibéré : le JSON déclare l'intention, la ligne de com
 
 ### Vider la corbeille Proton
 
-La corbeille Proton **ne se vide jamais d'elle-même**. Les 30 jours annoncés sont la
-durée pendant laquelle un fichier reste **récupérable** — pas un délai au bout duquel
-l'espace se libère. Tant qu'on ne la vide pas, tout ce que les passages `--delete`
-y envoient continue d'occuper l'espace du forfait.
+La corbeille Proton **ne se vide jamais d'elle-même**. Un fichier y reste
+récupérable **aussi longtemps que vous ne la videz pas** : il n'existe aucune purge
+automatique au bout d'un quelconque délai. Le chiffre de 30 jours qu'on voit souvent
+cité concerne la corbeille de **Proton Mail**, pas celle de Drive. Tant qu'on ne la
+vide pas, tout ce que les passages `--delete` y envoient continue d'occuper l'espace
+du forfait.
 
 Sur un usage de sauvegarde, cela s'accumule vite : chaque fichier modifié part lui
 aussi à la corbeille avant d'être remplacé par sa nouvelle version.
@@ -666,7 +668,7 @@ Le service systemd lance le moteur AVEC `--delete` :
 ```
 ExecStart=/usr/bin/python3 %h/Logiciels/Proton-drive/proton_sync.py %h/Logiciels/Proton-drive/mappings-user1.json --delete
 ```
-Conséquence : le passage de 3h devient un vrai miroir. Ce qui est supprimé localement disparaît de Proton la nuit suivante (selon le `delete_mode` de chaque mapping, et sous réserve du garde-fou de montage). Filets de sécurité : la fenêtre de plusieurs heures avant 3h pour réaliser une erreur, plus la corbeille Proton 30 j (pour les mappings en mode `trash`) — corbeille qu'il faut **vider soi-même** pour récupérer l'espace.
+Conséquence : le passage de 3h devient un vrai miroir. Ce qui est supprimé localement disparaît de Proton la nuit suivante (selon le `delete_mode` de chaque mapping, et sous réserve du garde-fou de montage). Filets de sécurité : la fenêtre de plusieurs heures avant 3h pour réaliser une erreur, plus la corbeille Proton (pour les mappings en mode `trash`) — corbeille qu'il faut **vider soi-même** pour récupérer l'espace.
 
 Pour basculer de A vers B : éditer `~/.config/systemd/user/proton-sync.service`, ajouter `--delete` à la fin de la ligne `ExecStart`, puis :
 ```bash

@@ -24,7 +24,8 @@ verrous, corbeilles applicatives et reliques d'autres systèmes.
 
 **Effet au prochain passage `--delete`** : un fichier nouvellement exclu qui était
 déjà monté sur Proton devient un « orphelin » (présent distant, absent de la liste
-locale) → il part à la **corbeille Proton** (récupérable 30 jours). C'est le
+locale) → il part à la **corbeille Proton** (récupérable tant qu'elle n'est pas
+vidée). C'est le
 nettoyage souhaité, mais sans surprise.
 
 ---

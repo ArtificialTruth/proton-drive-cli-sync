@@ -12,7 +12,7 @@ Usage :
     python3 proton_mapping_editor.py                # ouvre un sélecteur de fichier
     python3 proton_mapping_editor.py mappings-user1.json
 """
-__version__ = "1.18.2"   # version propre à CE fichier ; incrémentée quand il change (indépendant de GitHub)
+__version__ = "1.19.0"   # version propre à CE fichier ; incrémentée quand il change (indépendant de GitHub)
 
 import json
 import os
@@ -568,7 +568,7 @@ OPTION_HELP = {
         "for mappings set to mirror. With this box, every mapping that has "
         "“Allow deletion” (set in Edit) propagates local deletions: what is on "
         "Proton but was deleted locally gets deleted.\n\n"
-        "The deletion MODE (trash recoverable for 30 days, or permanent) is "
+        "The deletion MODE (trash, recoverable until you empty it, or permanent) is "
         "the one defined in each mapping. This box only enables the "
         "propagation; the mapping decides trash or permanent.\n\n"
         "A safety check first verifies that the source is healthy (NAS "
@@ -2066,7 +2066,7 @@ class MappingEditor(tk.Tk):
         mode_row = ttk.Frame(sub)
         mode_row.pack(anchor="w", pady=2)
         ttk.Label(mode_row, text=_("Mode: ")).pack(side="left")
-        rb_trash = ttk.Radiobutton(mode_row, text=_("Proton trash (recoverable for 30 days)"),
+        rb_trash = ttk.Radiobutton(mode_row, text=_("Proton trash (recoverable)"),
                                    variable=mode_var, value="trash")
         rb_trash.pack(side="left", padx=(0, 10))
         rb_perm = ttk.Radiobutton(mode_row, text=_("Permanent deletion"),
@@ -4309,7 +4309,7 @@ class MappingEditor(tk.Tk):
                        "⚠  {n} mapping(s) are in PERMANENT mode "
                        "(deletion without trash, IRREVERSIBLE):\n  • {names}"
                        "\n\nThe other mappings allowing deletion will go to the "
-                       "trash (recoverable for 30 days).\n\n"
+                       "trash, where they stay recoverable until you empty it.\n\n"
                        "Tip: a “Test (dry-run)” first shows what would be "
                        "deleted.\n\nRun anyway?").format(n=len(perm_mappings), names=noms))
                 kind = "warning"
@@ -4318,8 +4318,8 @@ class MappingEditor(tk.Tk):
                        _("You are launching a sync with “Propagate deletions”.\n\n"
                        "For the mappings that allow deletion, what was deleted "
                        "locally will be sent to the Proton trash "
-                       "(recoverable for 30 days; the trash does not empty "
-                       "itself).\n\n"
+                       "(recoverable until you empty the trash, which never "
+                       "empties itself).\n\n"
                        "Tip: a “Test (dry-run)” first shows what would be "
                        "deleted.\n\nRun?"))
                 kind = "question"
@@ -4502,7 +4502,7 @@ class MappingEditor(tk.Tk):
         # mapping par mapping : `mapping_delete = delete and allow_delete` (voir
         # proton_sync). Donc chaque mapping suit SA vocation, en un seul passage :
         #   - corbeille vide  (allow_delete absent) -> additif : rien n'est supprimé
-        #   - corbeille       (delete_mode=trash)   -> miroir corbeille (30 j)
+        #   - corbeille       (delete_mode=trash)   -> miroir corbeille
         #   - suppr. immédiate(delete_mode=permanent)-> miroir définitif
         # Le delete_mode est lui aussi lu par mapping. Pas besoin de regrouper en
         # lots : un unique passage --delete réalise nativement le comportement
@@ -4590,7 +4590,7 @@ class MappingEditor(tk.Tk):
               "anything; mirror mappings come back fully armed for their deletions "
               "(trash or permanent, as configured).\n\n"
               "Optionally, tick below to also empty each mapping's REMOTE folder "
-              "(sent to Proton TRASH, recoverable 30 days) before rebuilding — under "
+              "(sent to Proton TRASH, recoverable until emptied) before rebuilding — under "
               "the mount guard. You will purge the trash yourself once you have "
               "checked the re-upload succeeded.\n\n"
               "Real-time consumer and the scheduled timer are paused during the "
@@ -5188,8 +5188,8 @@ class ScheduleDialog(tk.Toplevel):
                 "AUTOMATICALLY propagate local deletions to Proton (according "
                 "to each mapping's settings), without intervention.\n\n"
                 "Safety nets: a several-hour window before execution, and the "
-                "Proton trash for 30 days (mappings in trash mode). Note that "
-                "the trash never empties itself: purge it to reclaim space.\n\n"
+                "Proton trash (mappings in trash mode), which keeps items "
+                "until you empty it — so purge it to reclaim space.\n\n"
                 "Make sure you have tested --delete manually first. "
                 "Continue?"),
                 title=_("Enable automatic deletions?"), kind="warning",

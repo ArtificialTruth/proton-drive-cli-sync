@@ -247,7 +247,7 @@ TWO accepted formats (backward compatibility):
 
 **Deletion fields (optional, per mapping)** — see the "Deletion propagation" section below:
 - `allow_delete`: `true`/`false` (absent = false = additive, never deletes). Allows this mapping to propagate local deletions to Proton.
-- `delete_mode`: `"trash"` (Proton trash, recoverable for 30 days) or `"permanent"` (definitive, irreversible). The mapping's mode is authoritative.
+- `delete_mode`: `"trash"` (Proton trash, recoverable until you empty it) or `"permanent"` (definitive, irreversible). The mapping's mode is authoritative.
 - `source_kind`: `"nfs"` or `"local"`. Auto-detected by the GUI, confirmed when editing. Used by the safety guard: an `nfs` source only deletes if the network mount is alive.
 
 ### Exclusions
@@ -263,7 +263,7 @@ Two cumulative levels:
 
 An excluded folder is not visited at all (its entire content is ignored). An important deliberate nuance: we do NOT blindly exclude all hidden files (starting with `.`) — a wanted `.important_config` is kept, while an explicitly listed `.caltrash` is excluded.
 
-**Automatic cleanup with `--delete`**: a file excluded locally but already present on Proton (uploaded before the exclusion was added) is seen as an **orphan** at the next `--delete` pass and goes to the Proton trash (recoverable for 30 days). The **cache signature embeds a fingerprint of the exclusion set**: any exclusion change invalidates `delete_synced` and forces reconciliation at the next `--delete` pass — cleanup is therefore automatic, no "Ignore cache" needed. Trade-off: that first pass after an exclusion change re-checks every folder (slower, once), then fast skips resume. Keep in mind: refine your exclusions if you want to keep on Proton certain files excluded locally — what you exclude eventually disappears from the backup.
+**Automatic cleanup with `--delete`**: a file excluded locally but already present on Proton (uploaded before the exclusion was added) is seen as an **orphan** at the next `--delete` pass and goes to the Proton trash (recoverable until you empty it). The **cache signature embeds a fingerprint of the exclusion set**: any exclusion change invalidates `delete_synced` and forces reconciliation at the next `--delete` pass — cleanup is therefore automatic, no "Ignore cache" needed. Trade-off: that first pass after an exclusion change re-checks every folder (slower, once), then fast skips resume. Keep in mind: refine your exclusions if you want to keep on Proton certain files excluded locally — what you exclude eventually disappears from the backup.
 
 **Real-time safety guard (`sync_subpath`)**: when the watcher targets a subpath directly, the engine tests **every segment** of the path relative to the mapping root — the target itself (`__pycache__`, `logs`) **and its ancestors** (`.Trash-1000/info` is skipped because `.Trash-1000` matches `.Trash-*`). The engine then emits a line carrying the **stable tag `[subpath-excluded]`** (language-independent), which the consumer detects to display "🚫 excluded (name filtered) — nothing to sync" instead of an ambiguous "✓ ok". No upload, no remote creation, no deletion for those paths.
 
@@ -316,7 +316,7 @@ By default, the engine is **additive**: it sends new and modified files, but nev
 This double level is deliberate: the JSON declares the intent, the command line arms the mechanism. It prevents a deletion from firing by accident (e.g. a routine scheduled pass).
 
 **Deletion mode** — set per mapping via `delete_mode`:
-- `"trash"` (default): sent to the Proton trash, recoverable for 30 days.
+- `"trash"` (default): sent to the Proton trash, recoverable until you empty it.
 - `"permanent"`: definitive deletion, irreversible. The mapping's mode is authoritative once `--delete` is active (no second flag).
 
 **Mount safety guard (`mount_check.py`)** — the key protection. Before any deletion in a mapping, the engine verifies that the source is "healthy" according to its `source_kind`:
@@ -332,9 +332,9 @@ This double level is deliberate: the JSON declares the intent, the command line 
 - A local deletion changes the folder's fingerprint → it is re-checked at the next `--delete` → the orphan is propagated.
 - A pass WITHOUT `--delete` does not mark folders as reconciled → a later `--delete` will catch a deletion made in between. (Backward-compatible with old caches, migrated on the fly.)
 
-**No mass-deletion guard**: a deliberate choice. A local deletion is considered intentional, and the window between two passes (point-in-time sync, not continuous) plus the 30-day trash are sufficient safety nets. The only guard is the mount one (technical failure, not human decision).
+**No mass-deletion guard**: a deliberate choice. A local deletion is considered intentional, and the window between two passes (point-in-time sync, not continuous) plus the trash are sufficient safety nets. The only guard is the mount one (technical failure, not human decision).
 
-> **The trash does not empty itself.** Those 30 days are a window to **recover files**, not an automatic reclaim of space: nothing disappears on its own once the delay is over. Without a manual purge, the trash keeps everything `--delete` passes send to it, and your plan's storage fills up with stale files. See "[Emptying the Proton trash](#emptying-the-proton-trash)".
+> **The trash does not empty itself.** A file stays recoverable there **for as long as you do not empty it** — there is no automatic purge after any delay (the 30 days often quoted apply to Proton Mail, not Drive). Without a manual purge, the trash keeps everything `--delete` passes send to it, and your plan's storage fills up with stale files. See "[Emptying the Proton trash](#emptying-the-proton-trash)".
 
 **`file` mappings**: a single-file mapping whose source disappears locally sees its remote copy deleted too (if `--delete` + `allow_delete`). To keep a file on Proton while removing it from the NAS: remove its mapping entry before the next pass (the order of operations between two passes doesn't matter).
 
@@ -342,9 +342,10 @@ This double level is deliberate: the JSON declares the intent, the command line 
 
 ### Emptying the Proton trash
 
-The Proton trash **never empties itself**. The 30 days you see quoted are how long a
-file stays **recoverable** — not a delay after which space is reclaimed. Until you
-empty it, everything `--delete` passes send there keeps taking up your plan's
+The Proton trash **never empties itself**. A file stays recoverable there **for as
+long as you do not empty it**: there is no automatic purge after any delay. The
+30-day figure often quoted applies to the **Proton Mail** trash, not Drive's. Until
+you empty it, everything `--delete` passes send there keeps taking up your plan's
 storage.
 
 In a backup workflow this piles up quickly: every modified file is also sent to the
@@ -664,7 +665,7 @@ The systemd service launches the engine WITH `--delete`:
 ```
 ExecStart=/usr/bin/python3 %h/Logiciels/Proton-drive/proton_sync.py %h/Logiciels/Proton-drive/mappings-user1.json --delete
 ```
-Consequence: the 3 am pass becomes a true mirror. What is deleted locally disappears from Proton the following night (according to each mapping's `delete_mode`, and subject to the mount guard). Safety nets: the several-hour window before 3 am to notice a mistake, plus the 30-day Proton trash (for mappings in `trash` mode) — a trash you must **empty yourself** to reclaim the space.
+Consequence: the 3 am pass becomes a true mirror. What is deleted locally disappears from Proton the following night (according to each mapping's `delete_mode`, and subject to the mount guard). Safety nets: the several-hour window before 3 am to notice a mistake, plus the Proton trash (for mappings in `trash` mode) — a trash you must **empty yourself** to reclaim the space.
 
 To switch from A to B: edit `~/.config/systemd/user/proton-sync.service`, append `--delete` to the `ExecStart` line, then:
 ```bash
