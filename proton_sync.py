@@ -26,7 +26,7 @@ Variable d'environnement :
     PROTON_DRIVE_CLI   chemin vers le binaire proton-drive
                         (par défaut : ~/Logiciels/Proton-drive/proton-drive)
 """
-__version__ = "1.6.5"   # version propre à CE fichier ; incrémentée quand il change (indépendant de GitHub)
+__version__ = "1.6.6"   # version propre à CE fichier ; incrémentée quand il change (indépendant de GitHub)
 
 import argparse
 import atexit
@@ -1598,7 +1598,7 @@ def _wipe_mapping_remote(mapping, dry_run=False, verbose=False):
         print(_("  ♻ No remote folder to wipe (already absent): {p}").format(p=remote_folder))
         return True
     print(_("  🗑  Wiping remote folder to TRASH: {p}").format(p=remote_folder))
-    # Toujours corbeille (permanent=False) : état transitoire, filet de 30 j si le
+    # Toujours corbeille (permanent=False) : état transitoire, filet si le
     # re-téléversement échoue. L'utilisateur purgera la corbeille lui-même après
     # avoir vérifié le succès.
     return remote_trash(remote_folder, permanent=False, dry_run=dry_run)
@@ -2153,8 +2153,9 @@ def main():
              "CORBEILLE (jamais définitif, quel que soit delete_mode) le dossier "
              "distant de chaque mapping réinitialisé. Sous garde-fou de montage "
              "(refusé si la source locale n'est pas saine). Idempotent : sans effet "
-             "si le dossier distant est déjà absent. La corbeille Proton (30 j) sert "
-             "de filet ; purge-la toi-même après avoir vérifié le re-téléversement.",
+             "si le dossier distant est déjà absent. La corbeille Proton sert "
+             "de filet ; purge-la toi-même après avoir vérifié le re-téléversement "
+             "(elle ne se vide jamais d'elle-même).",
     )
     parser.add_argument(
         "--accept-account-change", action="store_true",

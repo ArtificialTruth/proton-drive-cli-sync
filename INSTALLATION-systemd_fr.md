@@ -256,7 +256,8 @@ ExecStart=/usr/bin/python3 %h/Logiciels/Proton-drive/proton_sync.py %h/Logiciels
 Le passage de 3h devient un vrai miroir : ce qui est supprimé localement
 disparaît de Proton (selon le `delete_mode` de chaque mapping, sous réserve du
 garde-fou de montage). Filets : fenêtre de plusieurs heures avant 3h + corbeille
-Proton 30 j (mappings en mode `trash`).
+Proton (mappings en mode `trash`), qui conserve les éléments tant qu'on ne la
+vide pas soi-même.
 
 **Pour basculer A -> B** : éditer `~/.config/systemd/user/proton-sync.service`,
 ajouter `--delete` en fin de ligne `ExecStart`, puis :

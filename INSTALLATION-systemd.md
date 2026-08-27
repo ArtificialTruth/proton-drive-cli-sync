@@ -249,8 +249,8 @@ ExecStart=/usr/bin/python3 %h/Logiciels/Proton-drive/proton_sync.py %h/Logiciels
 ```
 The 3 am pass becomes a true mirror: what is deleted locally disappears from
 Proton (according to each mapping's `delete_mode`, subject to the mount guard).
-Safety nets: the several-hour window before 3 am + the 30-day Proton trash
-(mappings in `trash` mode).
+Safety nets: the several-hour window before 3 am + the Proton trash
+(mappings in `trash` mode), which keeps items until you empty it yourself.
 
 **To switch A -> B**: edit `~/.config/systemd/user/proton-sync.service`, append
 `--delete` at the end of the `ExecStart` line, then:
