@@ -247,7 +247,8 @@ TWO accepted formats (backward compatibility):
 
 **Deletion fields (optional, per mapping)** — see the "Deletion propagation" section below:
 - `allow_delete`: `true`/`false` (absent = false = additive, never deletes). Allows this mapping to propagate local deletions to Proton.
-- `delete_mode`: `"trash"` (Proton trash, recoverable until you empty it) or `"permanent"` (definitive, irreversible). The mapping's mode is authoritative.
+- `delete_mode`: `"trash"` (Proton trash, recoverable until you empty it) or `"permanent"`
+- `conflict_mode`: `"replace"` (default — the previous version goes to the trash) or `"revision"` (it stays **attached to the file**, reachable through right-click → "See version history" in the web app). Revisions count against your quota, with a retention set **globally on the account** on Proton's side (up to 10 years, 200 versions). On a large file rewritten in full at every drop they pile up as complete copies — best kept for small, frequently edited files. Needs Proton CLI **0.8.0** or newer; below that it falls back to `"replace"` with a warning, and the setting is preserved (definitive, irreversible). The mapping's mode is authoritative.
 - `source_kind`: `"nfs"` or `"local"`. Auto-detected by the GUI, confirmed when editing. Used by the safety guard: an `nfs` source only deletes if the network mount is alive.
 
 ### Exclusions

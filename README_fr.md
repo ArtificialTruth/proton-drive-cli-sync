@@ -247,7 +247,8 @@ DEUX formats acceptés (rétrocompatibilité) :
 
 **Champs de suppression (optionnels, par mapping)** — voir la section « Propagation des suppressions » plus bas :
 - `allow_delete` : `true`/`false` (absent = false = additif, jamais de suppression). Autorise ce mapping à propager les suppressions locales vers Proton.
-- `delete_mode` : `"trash"` (corbeille Proton, récupérable tant qu'elle n'est pas vidée) ou `"permanent"` (définitif, irréversible). Le mode du mapping fait foi.
+- `delete_mode` : `"trash"` (corbeille Proton, récupérable tant qu'elle n'est pas vidée) ou `"permanent"`
+- `conflict_mode` : `"replace"` (défaut — la version précédente part à la corbeille) ou `"revision"` (elle reste **attachée au fichier**, consultable par clic droit → « Voir l'historique des versions » dans l'interface web). Les révisions comptent dans le quota, avec une rétention **globale au compte** réglée côté Proton (jusqu'à 10 ans, 200 versions). Sur un gros fichier réécrit en entier à chaque dépôt, elles se cumulent en copies complètes — à réserver aux fichiers petits et souvent modifiés. Exige le CLI **0.8.0** ou plus récent ; en dessous, repli automatique sur `"replace"` avec avertissement, le réglage étant conservé (définitif, irréversible). Le mode du mapping fait foi.
 - `source_kind` : `"nfs"` ou `"local"`. Détecté automatiquement par le GUI, confirmé à l'édition. Sert au garde-fou : une source `nfs` ne supprime que si le montage réseau est vivant.
 
 ### Exclusions
