@@ -4,6 +4,18 @@
 
 Document de référence pour ce projet.
 
+> **Pour lancer l'application :**
+>
+> ```bash
+> python3 proton_mapping_editor.py
+> ```
+>
+> C'est le **seul** script à exécuter : il ouvre l'éditeur de mappings, d'où tout
+> se pilote (synchro, amorçage, planification, temps réel, configuration). Les
+> autres fichiers `.py` du dossier sont des modules internes — le moteur, les
+> watchers, les gestionnaires de services — appelés par l'application, jamais
+> directement par vous.
+
 ---
 
 ## Captures d'écran
@@ -659,7 +671,7 @@ Point CRUCIAL à comprendre : **configurer `allow_delete: true` dans le JSON ne 
 
 Le service systemd lance le moteur SANS `--delete` :
 ```
-ExecStart=/usr/bin/python3 %h/Logiciels/Proton-drive/proton_sync.py %h/Logiciels/Proton-drive/mappings-user1.json
+ExecStart=/usr/bin/python3 /home/myuser/Logiciels/Proton-drive/proton_sync.py /home/myuser/Logiciels/Proton-drive/mappings-user1.json
 ```
 Conséquence : les passages de 3h sont purement additifs (envoient, ne suppriment jamais). Les `allow_delete: true` du JSON restent dormants la nuit. Les suppressions ne se propagent QUE lorsque l'utilisateur lance manuellement avec `--delete` (via le GUI en cochant « Propager suppressions », ou en ligne de commande). C'est le mode prudent : on contrôle chaque suppression, on les voit partir.
 
@@ -667,7 +679,7 @@ Conséquence : les passages de 3h sont purement additifs (envoient, ne supprimen
 
 Le service systemd lance le moteur AVEC `--delete` :
 ```
-ExecStart=/usr/bin/python3 %h/Logiciels/Proton-drive/proton_sync.py %h/Logiciels/Proton-drive/mappings-user1.json --delete
+ExecStart=/usr/bin/python3 /home/myuser/Logiciels/Proton-drive/proton_sync.py /home/myuser/Logiciels/Proton-drive/mappings-user1.json --delete
 ```
 Conséquence : le passage de 3h devient un vrai miroir. Ce qui est supprimé localement disparaît de Proton la nuit suivante (selon le `delete_mode` de chaque mapping, et sous réserve du garde-fou de montage). Filets de sécurité : la fenêtre de plusieurs heures avant 3h pour réaliser une erreur, plus la corbeille Proton (pour les mappings en mode `trash`) — corbeille qu'il faut **vider soi-même** pour récupérer l'espace.
 

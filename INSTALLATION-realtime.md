@@ -6,13 +6,23 @@ Companion to `INSTALLATION-systemd.md`. The real-time layer adds **three daemons
 on top of the nightly timer already in place: two on the **desktop** (driven from
 the GUI) and one on the **NAS** (installed manually, managed on the NAS).
 
-> **The Proton CLI binary must be in place first** (the daemons run it): see
-> "Before you start: where to put the Proton CLI binary" in
-> `INSTALLATION-systemd.md`.
-
 Guiding principle: **systemd everywhere; each machine keeps its own daemons
 alive.** The GUI only drives the local daemons (desktop); it **observes** the NAS
 watcher through the NFS queue, without SSH.
+
+## Requirements
+
+- **`pyinotify`** — required on **every machine that watches folders**, whether or
+  not you use a NAS. Without it the real-time watcher will not start.
+
+  ```bash
+  sudo apt install python3-pyinotify     # Debian / Ubuntu / Mint
+  # or: pip3 install pyinotify
+  ```
+
+- **The Proton CLI binary must be in place first** (the daemons run it): see
+  "Before you start: where to put the Proton CLI binary" in
+  `INSTALLATION-systemd.md`.
 
 ---
 

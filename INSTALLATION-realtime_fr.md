@@ -6,9 +6,21 @@ Complément à `INSTALLATION-systemd.fr.md`. Le temps réel ajoute **trois démo
 timer nocturne déjà en place : deux sur la **machine locale** (pilotés depuis le GUI) et
 un sur le **NAS** (installé manuellement, géré sur le NAS).
 
-> **Le binaire du CLI Proton doit être en place avant tout** (les démons
-> l'exécutent) : voir « Avant de commencer : où placer le binaire du CLI Proton »
-> dans `INSTALLATION-systemd.fr.md`.
+## Prérequis
+
+- **`pyinotify`** — indispensable sur **toute machine qui surveille des dossiers**,
+  que vous utilisiez un NAS ou non. Sans lui, le watcher temps réel ne démarre pas.
+
+  ```bash
+  sudo apt install python3-pyinotify     # Debian / Ubuntu / Mint
+  # ou : pip3 install pyinotify
+  ```
+
+- **Le binaire du CLI Proton doit être en place avant tout** (les démons
+  l'exécutent) : voir « Avant de commencer : où placer le binaire du CLI Proton »
+  dans `INSTALLATION-systemd.fr.md`.
+
+---
 
 Principe retenu : **systemd partout, chaque machine garde ses propres démons
 actifs.** Le GUI ne pilote que les démons locaux (machine locale) ; il **observe** le

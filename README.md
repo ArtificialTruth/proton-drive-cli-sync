@@ -4,6 +4,17 @@
 
 Reference document for this project.
 
+> **To start the application:**
+>
+> ```bash
+> python3 proton_mapping_editor.py
+> ```
+>
+> This is the **only** script you run: it opens the mappings editor, from which
+> everything is driven (sync, priming, scheduling, real-time, configuration). The
+> other `.py` files in the folder are internal modules — the engine, the watchers,
+> the service managers — called by the application, never directly by you.
+
 ---
 
 ## Screenshots
@@ -656,7 +667,7 @@ CRUCIAL point to understand: **setting `allow_delete: true` in the JSON is NOT e
 
 The systemd service launches the engine WITHOUT `--delete`:
 ```
-ExecStart=/usr/bin/python3 %h/Logiciels/Proton-drive/proton_sync.py %h/Logiciels/Proton-drive/mappings-user1.json
+ExecStart=/usr/bin/python3 /home/myuser/Logiciels/Proton-drive/proton_sync.py /home/myuser/Logiciels/Proton-drive/mappings-user1.json
 ```
 Consequence: the 3 am passes are purely additive (they send, never delete). The JSON's `allow_delete: true` flags stay dormant at night. Deletions only propagate when the user launches manually with `--delete` (via the GUI by checking "Propagate deletions", or on the command line). This is the cautious mode: every deletion is controlled and watched.
 
@@ -664,7 +675,7 @@ Consequence: the 3 am passes are purely additive (they send, never delete). The 
 
 The systemd service launches the engine WITH `--delete`:
 ```
-ExecStart=/usr/bin/python3 %h/Logiciels/Proton-drive/proton_sync.py %h/Logiciels/Proton-drive/mappings-user1.json --delete
+ExecStart=/usr/bin/python3 /home/myuser/Logiciels/Proton-drive/proton_sync.py /home/myuser/Logiciels/Proton-drive/mappings-user1.json --delete
 ```
 Consequence: the 3 am pass becomes a true mirror. What is deleted locally disappears from Proton the following night (according to each mapping's `delete_mode`, and subject to the mount guard). Safety nets: the several-hour window before 3 am to notice a mistake, plus the Proton trash (for mappings in `trash` mode) — a trash you must **empty yourself** to reclaim the space.
 
