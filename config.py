@@ -33,7 +33,7 @@ from a deployment):
     except ImportError:
         appconfig = None   # callers fall back to their own built-in defaults
 """
-__version__ = "1.4.0"   # version propre à CE fichier ; incrémentée quand il change (indépendant de GitHub)
+__version__ = "1.5.0"   # version propre à CE fichier ; incrémentée quand il change (indépendant de GitHub)
 
 import json
 import os
@@ -494,6 +494,61 @@ def resolve_proton_cli():
     if configured:
         return configured
     return os.path.join(APP_DIR, "proton-drive")
+
+
+def cli_is_usable(path=None):
+    """Le binaire du CLI est-il utilisable — un FICHIER, et EXÉCUTABLE ?
+
+    `os.path.exists()` seul ne suffit pas : il rend vrai pour un DOSSIER. Un
+    utilisateur qui renseigne le dossier contenant le binaire au lieu du binaire
+    lui-même passait donc le contrôle de présence, puis échouait plus loin de
+    façon opaque — la version devenait « indéterminable », les capacités liées
+    à la version retombaient toutes sur leur repli conservateur, et rien ne
+    nommait la vraie cause (constaté en production le 27 août).
+    """
+    p = path or resolve_proton_cli()
+    return bool(p) and os.path.isfile(p) and os.access(p, os.X_OK)
+
+
+def cli_unusable_reason(path=None):
+    """Pourquoi le binaire n'est pas utilisable : 'missing' | 'not_a_file' |
+    'not_executable' | None (il l'est). Sert à donner un message PRÉCIS plutôt
+    qu'un « introuvable » qui serait faux quand le chemin existe bel et bien."""
+    p = path or resolve_proton_cli()
+    if not p or not os.path.exists(p):
+        return "missing"
+    if not os.path.isfile(p):
+        return "not_a_file"
+    if not os.access(p, os.X_OK):
+        return "not_executable"
+    return None
+
+
+def cli_unusable_explanation(path=None):
+    """Explication adaptée au VRAI motif. Rend une liste de lignes, comme
+    cli_missing_explanation() — le moteur les imprime, le GUI les assemble."""
+    p = path or resolve_proton_cli()
+    motif = cli_unusable_reason(p)
+    if motif == "not_a_file":
+        return [
+            _("This path is a folder, not the Proton Drive CLI binary:"),
+            "",
+            "    " + str(p),
+            "",
+            _("Add the binary's own name at the end of the path (usually "
+              "“proton-drive”), or pick the file itself rather than the folder "
+              "containing it."),
+        ]
+    if motif == "not_executable":
+        return [
+            _("This file exists but is not executable:"),
+            "",
+            "    " + str(p),
+            "",
+            _("Give it the execute permission (chmod +x), or point to the "
+              "correct binary."),
+        ]
+    return cli_missing_explanation()
 
 
 def cli_missing_explanation():

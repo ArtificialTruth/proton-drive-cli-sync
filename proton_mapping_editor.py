@@ -12,7 +12,7 @@ Usage :
     python3 proton_mapping_editor.py                # ouvre un sélecteur de fichier
     python3 proton_mapping_editor.py mappings-user1.json
 """
-__version__ = "1.19.1"   # version propre à CE fichier ; incrémentée quand il change (indépendant de GitHub)
+__version__ = "1.22.0"   # version propre à CE fichier ; incrémentée quand il change (indépendant de GitHub)
 
 import json
 import os
@@ -1157,12 +1157,12 @@ class MappingEditor(tk.Tk):
         travailler : on peut éditer ses mappings sans binaire.
         """
         try:
-            if os.path.exists(DEFAULT_CLI):
+            if _HAS_CONFIG and appconfig.cli_is_usable(DEFAULT_CLI):
                 return
             if not _HAS_CONFIG:
                 return
-            msg = "\n".join(appconfig.cli_missing_explanation())
-            if dlg_confirm(self, msg, title=_("Proton CLI not found"),
+            msg = "\n".join(appconfig.cli_unusable_explanation(DEFAULT_CLI))
+            if dlg_confirm(self, msg, title=_("Proton CLI unusable"),
                            kind="warning",
                            ok_text=_("Open Configuration…"),
                            cancel_text=_("Later")):
@@ -1265,7 +1265,7 @@ class MappingEditor(tk.Tk):
             # dialogues empilés pour une seule cause, dont le second est
             # trompeur. Quand le binaire EST là mais que la version reste
             # illisible, l'avertissement garde en revanche tout son sens.
-            if not os.path.exists(DEFAULT_CLI):
+            if not (_HAS_CONFIG and appconfig.cli_is_usable(DEFAULT_CLI)):
                 self._maybe_disable_rename_ext()
                 return
             msg = _("The Proton CLI version could not be determined. This "
@@ -1324,14 +1324,14 @@ class MappingEditor(tk.Tk):
             # pour un problème qui n'a aucun rapport, et le bouton de connexion
             # échouerait à son tour. On nomme la vraie cause et on renvoie vers
             # le champ qui la corrige.
-            if not os.path.exists(DEFAULT_CLI):
+            if not (_HAS_CONFIG and appconfig.cli_is_usable(DEFAULT_CLI)):
                 def apply_missing():
                     if hasattr(self, "auth_status"):
-                        self.auth_status.set("🔑 " + _("Proton CLI not found"))
+                        self.auth_status.set("🔑 " + _("Proton CLI unusable"))
                         self.auth_label.config(foreground="#d2294b")
                     if hasattr(self, "status"):
-                        self.status.set(_("Proton CLI binary not found — open "
-                                          "“⚙ Configuration…” to set its path."))
+                        self.status.set(_("Proton CLI binary unusable — open "
+                                          "“⚙ Configuration…” to check its path."))
                         self._auth_error_in_status = True
                 self._ui(apply_missing)
                 return
@@ -1498,17 +1498,25 @@ class MappingEditor(tk.Tk):
 
         # Tableau des mappings (panneau du haut)
         tree_frame = ttk.Frame(paned)
-        columns = ("state", "type", "del", "source", "dest_parent", "exclusions")
+        columns = ("state", "type", "del", "rev", "source", "dest_parent", "exclusions")
         self.tree = ttk.Treeview(tree_frame, columns=columns, show="headings", selectmode="extended")
         self.tree.heading("state", text=_("Ready"))
         self.tree.heading("type", text=_("Type"))
         self.tree.heading("del", text="🗑")
+        self.tree.heading("rev", text="↺")
         self.tree.heading("source", text=_("Source (local)"))
         self.tree.heading("dest_parent", text=_("Destination (parent folder on Proton Drive)"))
         self.tree.heading("exclusions", text=_("Mapping exclusions"))
         self.tree.column("state", width=48, anchor="center")
         self.tree.column("type", width=55, anchor="center")
         self.tree.column("del", width=34, anchor="center")
+        # Colonne « révisions » : VIDE dans le cas courant (mode remplacement),
+        # donc aucune surcharge visuelle pour la majorité des mappings. Étroite
+        # pour ne pas élargir une fenêtre déjà chargée — l'autre poste a un
+        # écran plus petit. Le glyphe ↺ a été validé avec test_glyphes.py : il
+        # reste net en petite taille (contrairement à 📚 ou 🗂, qui deviennent
+        # une tache), et il est déjà employé ailleurs dans le projet.
+        self.tree.column("rev", width=34, anchor="center")
         self.tree.column("source", width=330)
         self.tree.column("dest_parent", width=310)
         self.tree.column("exclusions", width=150)
@@ -1637,6 +1645,11 @@ class MappingEditor(tk.Tk):
         fit("type",  [_("Folder"), _("File")])
         # Corbeille : en-tête ET valeurs = glyphes (aucune mesure d'emoji).
         fit("del",   [], header_is_glyph=True, values_are_glyph=True)
+        # Révisions : même traitement. À défaut de passer par fit(), la colonne
+        # garderait stretch=True par défaut et s'étirerait à l'agrandissement,
+        # au détriment des colonnes de chemins — alors qu'elle ne contient
+        # jamais qu'un seul glyphe (↺ ou ⚠), voire rien.
+        fit("rev",   [], header_is_glyph=True, values_are_glyph=True)
         # Exclusions : en-tête + valeurs = texte (le « — » est un tiret, pas un
         # emoji : mesuré sans risque).
         fit("exclusions", ["—", _("{n} name(s), {m} pattern(s)").format(n=99, m=99)])
@@ -1714,9 +1727,19 @@ class MappingEditor(tk.Tk):
                 del_sym = "⛔" if m.get("delete_mode") == "permanent" else "🗑"
             else:
                 del_sym = ""
+            # Symbole de révision :
+            #   (vide)  -> remplacement (défaut) : l'ancienne version va à la corbeille
+            #   ↺       -> révisions demandées ET le CLI sait les créer
+            #   ⚠       -> révisions demandées mais CLI trop ancien : le passage
+            #              se fera en remplacement (réglage conservé, pas perdu)
+            if m.get("conflict_mode") == "revision":
+                rev_sym = "↺" if self._cli_supports_revisions() else "⚠"
+            else:
+                rev_sym = ""
             self.tree.insert("", "end", iid=str(i),
                              values=(self._mapping_state_symbol(m),
-                                     label, del_sym, m["source"], m["dest_parent"], excl_txt))
+                                     label, del_sym, rev_sym,
+                                     m["source"], m["dest_parent"], excl_txt))
 
     # ---------- Indicateur d'état « prêt pour le temps réel » (✅/⏳) ----------
     def _select_all_rows(self, _event=None):
@@ -1769,6 +1792,25 @@ class MappingEditor(tk.Tk):
             return eff.fingerprint() if eff else None
         except Exception:
             return None
+
+    def _cli_supports_revisions(self):
+        """Le CLI installé sait-il créer des révisions (>= 0.8.0) ?
+
+        Délègue à `proton_sync.cli_supports_revisions()` : la LOGIQUE DE VERSION
+        vit dans le moteur et n'est jamais réimplémentée ici — sinon les deux
+        divergeraient au premier changement de seuil. Le moteur mémorise la
+        version sur disque, l'appel est donc bon marché même répété par ligne
+        du tableau.
+
+        Moteur absent -> False, le choix conservateur : on affiche l'avertissement
+        plutôt que de laisser croire que les révisions seront créées.
+        """
+        if not _HAS_ENGINE:
+            return False
+        try:
+            return bool(_ENGINE.cli_supports_revisions())
+        except Exception:
+            return False
 
     def _mapping_state_symbol(self, mapping, cache_data=None):
         """✅ si le mapping est PRÊT pour le temps réel (racine subtree_complete ET
@@ -1863,8 +1905,47 @@ class MappingEditor(tk.Tk):
             self._refresh_tree()
             self._update_excl_summary()
             self.status.set(_("Loaded: {p} ({n} entries)").format(p=path, n=len(self.mappings)))
+            self._warn_revisions_unsupported()
         except Exception as e:
             dlg_error(self, str(e), title=_("Load error"))
+
+    def _warn_revisions_unsupported(self):
+        """Avertit UNE FOIS par chargement si des mappings demandent les
+        révisions alors que le CLI installé ne sait pas les créer.
+
+        N'apparaît QUE dans ce cas : un dialogue affiché quand tout va bien
+        finit par être fermé sans être lu, et perdrait son pouvoir d'alerte le
+        jour où il compte. Il n'apparaît pas non plus à chaque rafraîchissement
+        du tableau — seulement au chargement d'un fichier.
+
+        Ne bloque rien : le passage aura lieu, en mode remplacement.
+        """
+        try:
+            noms = [m.get("source", "?") for m in self.mappings
+                    if m.get("conflict_mode") == "revision"]
+            if not noms or self._cli_supports_revisions():
+                return
+            liste = "\n".join("  • " + n for n in noms[:10])
+            if len(noms) > 10:
+                liste += "\n  " + _("…and {n} more").format(n=len(noms) - 10)
+            dlg_warning(self, _(
+                "This mappings file has {n} mapping(s) set to keep file "
+                "revisions:\n\n{list}\n\n"
+                "{why} These mappings will run in REPLACE mode: the previous "
+                "version goes to the Proton trash instead of staying attached "
+                "to the file.\n\n"
+                "Their setting is kept, and revisions already created on Proton "
+                "are untouched. Updating the Proton CLI restores the intended "
+                "behaviour."
+                ).format(n=len(noms), list=liste, why=(
+                    _("The installed Proton CLI is too old to create them.")
+                    if (_HAS_ENGINE and _ENGINE.cli_version())
+                    else _("The Proton CLI version could not be determined, so "
+                           "revisions cannot be used."))),
+                title=_("Revisions not available"))
+        except Exception:
+            # Un avis ne doit jamais empêcher un fichier de se charger.
+            pass
 
     def on_save(self):
         if not self.config_path:
@@ -2033,6 +2114,51 @@ class MappingEditor(tk.Tk):
         ttk.Button(dest_row, text=_("🔍 Browse Proton…"),
                    command=lambda: RemoteFolderPicker(dlg, self, dest_var)
                    ).pack(side="left", padx=(6, 0))
+
+        # --- Zone Fichiers modifiés (mode de conflit) ---
+        conf_frame = ttk.LabelFrame(body, text=_("Modified files"), padding=8)
+        conf_frame.pack(fill="x", pady=(0, 8))
+
+        conf_init = (mapping.get("conflict_mode") or "replace") if is_edit else "replace"
+        conf_var = tk.StringVar(value=conf_init)
+
+        ttk.Radiobutton(conf_frame, variable=conf_var, value="replace",
+                        text=_("Replace — the previous version goes to the Proton trash")
+                        ).pack(anchor="w")
+        rev_radio = ttk.Radiobutton(
+            conf_frame, variable=conf_var, value="revision",
+            text=_("Keep a revision — the previous version stays attached to the file"))
+        rev_radio.pack(anchor="w")
+
+        conf_note = ttk.Label(conf_frame, text="", wraplength=600,
+                              foreground="#7a5c00", justify="left")
+        conf_note.pack(anchor="w", pady=(2, 0))
+
+        # CLI trop ancien : on GRISE le choix sans TOUCHER à la valeur
+        # enregistrée. Effacer le réglage ferait perdre silencieusement une
+        # configuration voulue, alors que la situation est temporaire (mettre
+        # le CLI à jour la rétablit). Le mapping fonctionnera en remplacement
+        # d'ici là, ce que la note explique.
+        if not self._cli_supports_revisions():
+            rev_radio.configure(state="disabled")
+            # Version INCONNUE et version TROP ANCIENNE mènent au même repli,
+            # mais pas au même message : affirmer « trop ancien » quand on n'a
+            # pas pu lire la version serait une cause inventée.
+            _connue = bool(_HAS_ENGINE and _ENGINE.cli_version())
+            if conf_init == "revision":
+                conf_note.configure(text=_(
+                    "This mapping asks for revisions, but the installed Proton CLI "
+                    "is too old to create them: it will run in replace mode until "
+                    "the CLI is updated. The setting is kept.") if _connue else _(
+                    "This mapping asks for revisions, but the Proton CLI version "
+                    "could not be determined, so they cannot be used: it will run "
+                    "in replace mode. The setting is kept."))
+            else:
+                conf_note.configure(text=_(
+                    "Revisions need a newer Proton CLI than the one installed."
+                    ) if _connue else _(
+                    "Revisions are unavailable: the Proton CLI version could not "
+                    "be determined."))
 
         # --- Zone Suppression ---
         del_frame = ttk.LabelFrame(body, text=_("Deletion propagation"), padding=8)
@@ -2258,6 +2384,13 @@ class MappingEditor(tk.Tk):
             # Conserver les exclusions existantes si on édite
             if is_edit and mapping.get("exclusions"):
                 new_m["exclusions"] = mapping["exclusions"]
+            # Mode de conflit : on n'écrit la clé QUE si elle diffère du défaut,
+            # pour ne pas alourdir les fichiers de mappings existants d'un
+            # réglage qui ne change rien. La valeur est enregistrée même quand
+            # le bouton est grisé (CLI trop ancien) : le réglage voulu survit à
+            # la mise à jour du CLI.
+            if conf_var.get() == "revision":
+                new_m["conflict_mode"] = "revision"
             # Réglages de suppression
             if allow_var.get():
                 chosen_kind = srckind_var.get()
@@ -3930,10 +4063,30 @@ class MappingEditor(tk.Tk):
                                      "NAS is enabled."), title=_("Configuration"))
                     dlg.grab_set()
                     return
+            # Chemin du CLI : valider ICI, au moment où on le saisit, plutôt
+            # qu'au prochain démarrage. Signaler l'erreur une fenêtre plus tard
+            # oblige à revenir sur ses pas, et les symptômes intermédiaires
+            # (version indéterminable, capacités liées à la version retombant
+            # sur leur repli) masquent la vraie cause.
+            #
+            # On AVERTIT sans bloquer : le binaire peut n'être pas encore
+            # téléchargé au moment où l'on prépare la configuration. Deux
+            # points de sortie, comme partout ailleurs — corriger ou assumer.
+            _cli_saisi = (cli_var.get() or "").strip()
+            if _HAS_CONFIG and _cli_saisi and not appconfig.cli_is_usable(_cli_saisi):
+                _msg = "\n".join(appconfig.cli_unusable_explanation(_cli_saisi))
+                if not dlg_confirm(dlg, _msg + "\n\n" + _(
+                        "Save this path anyway?"),
+                        title=_("Proton CLI unusable"), kind="warning",
+                        ok_text=_("Save anyway"), cancel_text=_("Fix the path")):
+                    dlg.grab_set()
+                    cli_entry.focus_set()
+                    return
+
             if _HAS_I18N:
                 i18n.write_language_setting(lang_var.get())
             if _HAS_CONFIG:
-                appconfig.set_proton_cli_path((cli_var.get() or "").strip() or None)
+                appconfig.set_proton_cli_path(_cli_saisi or None)
                 appconfig.set_nas_enabled(nas_var.get())
                 appconfig.set_nas_mount_path(mount_var.get())
                 # Table de correspondance des chemins de données (lignes non vides).

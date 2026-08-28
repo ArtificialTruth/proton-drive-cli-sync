@@ -26,7 +26,7 @@ Variable d'environnement :
     PROTON_DRIVE_CLI   chemin vers le binaire proton-drive
                         (par défaut : ~/Logiciels/Proton-drive/proton-drive)
 """
-__version__ = "1.6.7"   # version propre à CE fichier ; incrémentée quand il change (indépendant de GitHub)
+__version__ = "1.7.1"   # version propre à CE fichier ; incrémentée quand il change (indépendant de GitHub)
 
 import argparse
 import atexit
@@ -986,6 +986,47 @@ def cli_supports_shared_delete():
         return False
 
 
+REVISION_MIN_VERSION = (0, 8, 0)
+
+
+def cli_supports_revisions():
+    """Le CLI sait-il créer une révision plutôt que remplacer (>= 0.8.0) ?
+
+    `-f create-new-revision` est apparu en 0.8.0. Avant, la seule stratégie
+    de conflit sur les fichiers était `replace`, qui envoie l'ancienne version
+    à la CORBEILLE avant de téléverser la nouvelle.
+
+    Version indéterminable -> False, le choix conservateur : on retombe sur le
+    comportement historique, qui fonctionne partout.
+    """
+    version = cli_version()
+    if not version:
+        return False
+    try:
+        return tuple(int(x) for x in version.split(".")) >= REVISION_MIN_VERSION
+    except ValueError:
+        return False
+
+
+def file_conflict_flag(conflict_mode):
+    """Valeur de `-f` à passer au CLI pour ce mode de mapping.
+
+    `"revision"` demande une nouvelle révision du fichier existant : l'ancienne
+    version reste ATTACHÉE au fichier, consultable depuis l'interface web, au
+    lieu de partir à la corbeille. Elle compte alors dans le quota, selon la
+    rétention GLOBALE du compte (réglable côté Proton, jusqu'à 10 ans).
+
+    REPLI : si le CLI est trop ancien, on rend `replace` — le comportement
+    historique. Rien n'est perdu : les révisions DÉJÀ créées restent chez
+    Proton (ce logiciel ne sait pas en supprimer), seul l'enrichissement
+    s'interrompt. L'avertissement est émis UNE FOIS par passage, au démarrage,
+    et non ici : cette fonction est appelée à chaque dossier.
+    """
+    if conflict_mode == "revision" and cli_supports_revisions():
+        return "create-new-revision"
+    return "replace"
+
+
 def check_auth():
     """Vérifie que le CLI peut s'authentifier (trousseau déverrouillé, session
     ouverte). Retourne (True, None) si OK, (False, message) sinon.
@@ -1257,7 +1298,8 @@ def _glob_escape_local_path(path):
     return "".join(out)
 
 
-def _upload_one(local_path, remote_parent, skip_thumbnails=False):
+def _upload_one(local_path, remote_parent, skip_thumbnails=False,
+                conflict_mode="replace"):
     """Téléverse UN seul fichier. Retourne (ok: bool, message: str). Sert à
     l'isolation des échecs (ré-essai fichier par fichier) et n'est appelé qu'après
     l'échec d'un lot — jamais en régime normal.
@@ -1267,7 +1309,8 @@ def _upload_one(local_path, remote_parent, skip_thumbnails=False):
     le CLI dans STDOUT, tandis que STDERR ne donne qu'un compteur générique
     (« 1 item(s) failed to upload »). On garde les DEUX, stdout d'abord."""
     cwd, names = _cli_local_args([local_path])
-    cmd = ["filesystem", "upload", "-f", "replace", "-d", "merge"]
+    cmd = ["filesystem", "upload",
+           "-f", file_conflict_flag(conflict_mode), "-d", "merge"]
     if skip_thumbnails:
         cmd.append("--skip-thumbnails")
     cmd += names + [remote_parent]
@@ -1346,7 +1389,8 @@ def _cli_local_args(local_paths):
     return parent, [_glob_escape_local_path(os.path.basename(p)) for p in local_paths]
 
 
-def upload_batch(local_paths, remote_parent, dry_run=False, verbose=False):
+def upload_batch(local_paths, remote_parent, dry_run=False, verbose=False,
+                 conflict_mode="replace"):
     """Retourne True si tout s'est bien passé (y compris si la liste est vide ou en
     dry-run), False en cas d'échec d'upload.
 
@@ -1367,7 +1411,9 @@ def upload_batch(local_paths, remote_parent, dry_run=False, verbose=False):
     # Les métacaractères du nom restent échappés ; c'est le fait de ne plus
     # transmettre de séparateur qui neutralise le problème des composants cachés.
     cwd, names = _cli_local_args(local_paths)
-    cmd = ["filesystem", "upload", "-f", "replace", "-d", "merge"] + names + [remote_parent]
+    cmd = (["filesystem", "upload",
+            "-f", file_conflict_flag(conflict_mode), "-d", "merge"]
+           + names + [remote_parent])
     # Progression (Temps 1) : signaler le lot en cours (nb de fichiers + taille
     # totale) AVANT l'envoi groupé, puis la fin APRÈS. Le GUI affiche un indicateur
     # discret « Envoi en cours — N fichiers, X Go » pendant ce temps.
@@ -1433,7 +1479,7 @@ def upload_batch(local_paths, remote_parent, dry_run=False, verbose=False):
         info = remote_after.get(os.path.basename(p))
         if not needs_upload(p, info, verbose=False):
             continue   # déjà monté correctement par le lot
-        ok, why = _upload_one(p, remote_parent)
+        ok, why = _upload_one(p, remote_parent, conflict_mode=conflict_mode)
         if not ok and _is_vanished_error(why):
             # Disparu PENDANT l'upload (course avec une suppression concurrente) :
             # bénin aussi. À NE PAS confondre avec un fichier présent mais corrompu.
@@ -1447,7 +1493,8 @@ def upload_batch(local_paths, remote_parent, dry_run=False, verbose=False):
             # -> le fichier est sauvegardé (sans aperçu Proton). Ne se déclenche
             # QUE sur cette signature ; les vrais échecs restent des échecs.
             print(_("      ⚠ thumbnail/codec issue — retrying without thumbnail: {p}").format(p=p))
-            ok2, why2 = _upload_one(p, remote_parent, skip_thumbnails=True)
+            ok2, why2 = _upload_one(p, remote_parent, skip_thumbnails=True,
+                                    conflict_mode=conflict_mode)
             if ok2:
                 no_thumb += 1
                 print(_("      ✓ uploaded WITHOUT thumbnail (no Proton preview): {p}").format(p=p))
@@ -1605,6 +1652,7 @@ def _wipe_mapping_remote(mapping, dry_run=False, verbose=False):
 
 
 def sync_folder(local_dir, remote_parent, dry_run=False, verbose=False, verify_hash=False,
+                conflict_mode="replace",
                 cache=None, ignore_cache=False, exclusions=None,
                 delete=False, delete_mode="trash", realtime=False, rename_ext=True,
                 collision_suffix=_EXT_COLLISION_SUFFIX_DEFAULT):
@@ -1715,7 +1763,8 @@ def sync_folder(local_dir, remote_parent, dry_run=False, verbose=False, verify_h
                     continue
                 child_complete = sync_folder(
                     entry.path, remote_folder, dry_run=dry_run, verbose=verbose,
-                    verify_hash=verify_hash, cache=cache, ignore_cache=ignore_cache,
+                    verify_hash=verify_hash, conflict_mode=conflict_mode,
+                    cache=cache, ignore_cache=ignore_cache,
                     exclusions=exclusions, delete=delete, delete_mode=delete_mode,
                     realtime=realtime, rename_ext=rename_ext,
                     collision_suffix=collision_suffix)
@@ -1763,10 +1812,11 @@ def sync_folder(local_dir, remote_parent, dry_run=False, verbose=False, verify_h
         if entry.is_dir(follow_symlinks=False):
             child_complete = sync_folder(
                 entry.path, remote_folder, dry_run=dry_run, verbose=verbose,
-                verify_hash=verify_hash, cache=cache, ignore_cache=ignore_cache,
+                verify_hash=verify_hash, conflict_mode=conflict_mode,
+                cache=cache, ignore_cache=ignore_cache,
                 exclusions=exclusions, delete=delete, delete_mode=delete_mode,
                 realtime=realtime, rename_ext=rename_ext,
-                    collision_suffix=collision_suffix)
+                collision_suffix=collision_suffix)
             if not child_complete:
                 all_children_complete = False
         elif entry.is_file():   # suit les liens : un lien vers un fichier EST un fichier
@@ -1793,7 +1843,8 @@ def sync_folder(local_dir, remote_parent, dry_run=False, verbose=False, verify_h
             if verbose:
                 print(_("    ⏭  ignored (not a regular file): {p}").format(p=entry.path))
 
-    upload_ok = upload_batch(to_upload, remote_folder, dry_run=dry_run, verbose=verbose)
+    upload_ok = upload_batch(to_upload, remote_folder, dry_run=dry_run, verbose=verbose,
+                             conflict_mode=conflict_mode)
     if not upload_ok:
         had_failure = True
 
@@ -1867,12 +1918,15 @@ def sync_folder_guarded(mapping, local_dir, remote_parent, dry_run=False, verbos
             print(_("  🗑  Deletion propagation ACTIVE ({l}) for this mapping").format(l=label))
 
     sync_folder(local_dir, remote_parent, dry_run=dry_run, verbose=verbose,
-                verify_hash=verify_hash, cache=cache, ignore_cache=ignore_cache,
+                verify_hash=verify_hash,
+                conflict_mode=mapping.get("conflict_mode", "replace"),
+                cache=cache, ignore_cache=ignore_cache,
                 exclusions=exclusions, delete=mapping_delete, delete_mode=mode,
                 rename_ext=rename_ext, collision_suffix=collision_suffix)
 
 
 def sync_file(local_file, remote_parent, dry_run=False, verbose=False, verify_hash=False,
+              conflict_mode="replace",
               cache=None, ignore_cache=False, exclusions=None):
     # Pour un fichier unique, le coût de l'appel `list` du dossier parent est
     # déjà minime (un seul list pour un seul fichier à vérifier). On garde la
@@ -1892,7 +1946,8 @@ def sync_file(local_file, remote_parent, dry_run=False, verbose=False, verify_ha
         return
     info = remote_items.get(os.path.basename(local_file))
     if needs_upload(local_file, info, verbose=verbose, verify_hash=verify_hash):
-        upload_batch([local_file], remote_parent, dry_run=dry_run, verbose=verbose)
+        upload_batch([local_file], remote_parent, dry_run=dry_run, verbose=verbose,
+                     conflict_mode=conflict_mode)
     elif verbose:
         print(_("    ⏭  unchanged: {p}").format(p=local_file))
 
@@ -2061,7 +2116,9 @@ def sync_subpath(mapping, subpath, dry_run=False, verbose=False, verify_hash=Fal
 
     print(_("  ↪ subpath: {s}  =>  {d}").format(s=subpath, d=remote_parent))
     sync_folder(subpath, remote_parent, dry_run=dry_run, verbose=verbose,
-                verify_hash=verify_hash, cache=cache, ignore_cache=ignore_cache,
+                verify_hash=verify_hash,
+                conflict_mode=mapping.get("conflict_mode", "replace"),
+                cache=cache, ignore_cache=ignore_cache,
                 exclusions=exclusions, delete=mapping_delete, delete_mode=mode,
                 realtime=True, rename_ext=rename_ext,
                 collision_suffix=collision_suffix)
@@ -2214,7 +2271,7 @@ def main():
     # l'acquisition du verrou, exprès : sinon la sonde échouerait dès qu'un vrai
     # passage tourne, ce qui n'a rien à voir avec l'état du trousseau.
     if args.check_auth:
-        if not os.path.exists(CLI):
+        if not (appconfig.cli_is_usable(CLI) if _HAS_CONFIG else os.path.isfile(CLI)):
             print(_("❌ proton-drive binary not found at {p}").format(p=CLI))
             sys.exit(2)
         ok, _err = check_auth()
@@ -2254,15 +2311,15 @@ def main():
         print(_("   (If you are sure no other instance is running, delete this file.)"))
         sys.exit(1)
 
-    if not os.path.exists(CLI):
-        # Explication PARTAGÉE avec le GUI (config.cli_missing_explanation) :
+    if not (appconfig.cli_is_usable(CLI) if _HAS_CONFIG else os.path.isfile(CLI)):
+        # Explication PARTAGÉE avec le GUI (config.cli_unusable_explanation) :
         # l'ancien texte ne parlait que de PROTON_DRIVE_CLI, alors qu'un
         # utilisateur du GUI n'a pas besoin de cette variable — le champ de la
         # fenêtre Configuration lui suffit. Trois messages divergents pour un
         # même problème, c'était le défaut.
-        print(_("❌ proton-drive binary not found at {p}").format(p=CLI))
+        print(_("❌ Proton CLI binary unusable: {p}").format(p=CLI))
         if _HAS_CONFIG:
-            for line in appconfig.cli_missing_explanation()[1:]:
+            for line in appconfig.cli_unusable_explanation(CLI)[1:]:
                 print(("   " + line) if line else "")
         sys.exit(1)
 
@@ -2398,6 +2455,32 @@ def main():
     elif _ver_status == "unknown":
         print(_("   ⚠  Could not determine the Proton CLI version (tested: {t})."
                 ).format(t=CLI_TESTED_VERSION))
+    # Mappings demandant les révisions alors que le CLI ne sait pas les créer.
+    # UNE SEULE ligne pour tout le passage : la cause est unique (la version du
+    # CLI), pas le mapping — la répéter à chaque dossier noierait le journal.
+    # Posée ici, juste après l'avertissement de version, car les deux se
+    # répondent. Rien n'est perdu par ce repli : les révisions DÉJÀ créées
+    # restent chez Proton, seul leur enrichissement s'interrompt.
+    if not cli_supports_revisions():
+        _n_rev = sum(1 for m in mappings if m.get("conflict_mode") == "revision")
+        if _n_rev:
+            _vmin = ".".join(str(x) for x in REVISION_MIN_VERSION)
+            if cli_version():
+                print(_("   ⚠  {n} mapping(s) ask for file revisions, which needs "
+                        "Proton CLI {v} or newer — falling back to replace "
+                        "(previous versions go to the trash instead of being kept "
+                        "with the file). Already created revisions are untouched."
+                        ).format(n=_n_rev, v=_vmin))
+            else:
+                # Version INDÉTERMINABLE : ne pas affirmer « trop ancien », ce
+                # qu'on ne sait pas. Le repli est le même (choix conservateur),
+                # mais la cause annoncée doit être la vraie.
+                print(_("   ⚠  {n} mapping(s) ask for file revisions, but the Proton "
+                        "CLI version could not be determined ({v} or newer is "
+                        "required) — falling back to replace. Already created "
+                        "revisions are untouched."
+                        ).format(n=_n_rev, v=_vmin))
+
     n_known = sum(1 for k in cache.data if k != Cache.META_KEY)
     print(_("   Cache: {p} ({n} known folder(s))").format(p=cache_path, n=n_known))
     if n_known > 0 and not args.ignore_cache and not args.dry_run and not args.reset_source:
@@ -2542,7 +2625,9 @@ def main():
                                 collision_suffix=effective_collision_suffix)
         else:
             sync_file(m["source"], m["dest_parent"], dry_run=args.dry_run, verbose=args.verbose,
-                      verify_hash=args.verify_hash, cache=cache, ignore_cache=args.ignore_cache,
+                      verify_hash=args.verify_hash,
+                      conflict_mode=m.get("conflict_mode", "replace"),
+                      cache=cache, ignore_cache=args.ignore_cache,
                       exclusions=eff_ex)
         # Checkpoint après chaque entrée du mapping : si la machine plante ou
         # qu'on reçoit un kill -9 plus tard, on garde au moins le travail des
