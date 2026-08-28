@@ -12,7 +12,7 @@ contente de LIRE l'état du linger et de rappeler la commande à l'utilisateur.
 Tout est centré sur l'utilisateur courant : chaque GUI gère la planification
 de son propre utilisateur (sessions et homes séparés).
 """
-__version__ = "1.0.1"   # version propre à CE fichier ; incrémentée quand il change (indépendant de GitHub)
+__version__ = "1.1.0"   # version propre à CE fichier ; incrémentée quand il change (indépendant de GitHub)
 
 import os
 import re
@@ -42,8 +42,14 @@ TIMER_NAME = "proton-sync.timer"
 SERVICE_PATH = os.path.join(SYSTEMD_USER_DIR, SERVICE_NAME)
 TIMER_PATH = os.path.join(SYSTEMD_USER_DIR, TIMER_NAME)
 
-DEFAULT_CLI = "%h/Logiciels/Proton-drive/proton-drive"
-DEFAULT_ENGINE = "%h/Logiciels/Proton-drive/proton_sync.py"
+# Chemins écrits dans l'unité systemd générée. Ils valaient auparavant
+# « %h/Logiciels/Proton-drive/… » : `%h` est bien résolu par systemd, mais le
+# reste était l'arborescence d'UN poste, transposée chez tout le monde. Une
+# installation ailleurs produisait une unité pointant vers un dossier
+# inexistant. APP_DIR est l'emplacement RÉEL de ce module, donc du projet.
+APP_DIR = os.path.dirname(os.path.abspath(__file__))
+DEFAULT_CLI = os.path.join(APP_DIR, "proton-drive")
+DEFAULT_ENGINE = os.path.join(APP_DIR, "proton_sync.py")
 
 
 def _run(args):

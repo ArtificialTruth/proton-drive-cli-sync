@@ -24,7 +24,7 @@ Tout est centré sur l'utilisateur courant et son fichier de mappings actif.
 Conçu pour tourner SANS privilèges (session utilisateur). Le linger (sudo) est
 seulement LU et rappelé, jamais modifié ici.
 """
-__version__ = "1.5.0"   # version propre à CE fichier ; incrémentée quand il change (indépendant de GitHub)
+__version__ = "1.6.0"   # version propre à CE fichier ; incrémentée quand il change (indépendant de GitHub)
 
 import os
 import re
@@ -119,13 +119,20 @@ CONSUME_NAME = "proton-consume.service"
 WATCH_PATH = os.path.join(SYSTEMD_USER_DIR, WATCH_NAME)
 CONSUME_PATH = os.path.join(SYSTEMD_USER_DIR, CONSUME_NAME)
 
-# %h = home de l'utilisateur (résolu par systemd lui-même, PAS par Python) —
-# reste le gabarit par défaut pour les unités générées. Si un binaire CLI est
-# explicitement configuré (chemin absolu, pas le défaut), on l'utilise à la
-# place du gabarit %h pour que les démons pointent vers le MÊME binaire que le
-# GUI/moteur (voir _cli_env_value ci-dessous).
-H_ENGINE_DIR = "%h/Logiciels/Proton-drive"
-DEFAULT_CLI = "%h/Logiciels/Proton-drive/proton-drive"
+# Chemins écrits dans les unités systemd générées.
+#
+# Ils valaient auparavant « %h/Logiciels/Proton-drive » : `%h` est bien résolu
+# par systemd, mais « Logiciels/Proton-drive » était l'arborescence d'UN poste,
+# transposée chez tout le monde. Une installation ailleurs produisait des
+# unités pointant vers un dossier inexistant — signalé par un utilisateur du
+# dépôt le 27 août.
+#
+# APP_DIR est l'emplacement RÉEL de ce module, donc du projet, quel qu'il soit.
+# On écrit un chemin absolu plutôt qu'un gabarit : les unités deviennent
+# vérifiables à l'œil, et il n'y a plus de résolution différée qui pourrait
+# diverger de ce que le GUI et le moteur utilisent réellement.
+H_ENGINE_DIR = APP_DIR
+DEFAULT_CLI = os.path.join(APP_DIR, "proton-drive")
 
 # Préfixes des noms de marqueurs déposés par les watchers (cf. marker_filename()).
 MARKER_PREFIXES = ("add_", "del_")
