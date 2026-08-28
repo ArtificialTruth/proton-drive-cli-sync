@@ -3623,9 +3623,6 @@ msgstr ""
 msgid "  3. failing that: {p}"
 msgstr "  3. en su defecto: {p}"
 
-msgid "Proton CLI not found"
-msgstr "CLI de Proton no encontrada"
-
 msgid "Open Configuration…"
 msgstr "Abrir Configuración…"
 
@@ -3663,11 +3660,6 @@ msgid ""
 msgstr ""
 "    ⏳ carpeta fría — aplazada al pase programado (su carpeta principal aún "
 "no está indexada)"
-
-msgid "Proton CLI binary not found — open “⚙ Configuration…” to set its path."
-msgstr ""
-"No se encontró el binario de la CLI de Proton — abra «⚙ Configuración…» para "
-"indicar su ruta."
 
 msgid ""
 "Propagate deletions (--delete)\n"
@@ -3832,3 +3824,140 @@ msgstr ""
 "Consejo: una «Prueba (dry-run)» primero muestra lo que se eliminaría.\n"
 "\n"
 "¿Lanzar de todos modos?"
+
+msgid "Modified files"
+msgstr "Archivos modificados"
+
+msgid "Keep a revision — the previous version stays attached to the file"
+msgstr ""
+"Conservar una revisión — la versión anterior permanece adjunta al archivo"
+
+msgid "Revisions not available"
+msgstr "Revisiones no disponibles"
+
+msgid "Replace — the previous version goes to the Proton trash"
+msgstr "Reemplazar — la versión anterior va a la papelera de Proton"
+
+msgid ""
+"This mapping asks for revisions, but the installed Proton CLI is too old to "
+"create them: it will run in replace mode until the CLI is updated. The "
+"setting is kept."
+msgstr ""
+"Esta asignación pide revisiones, pero la CLI de Proton instalada es "
+"demasiado antigua para crearlas: funcionará en modo reemplazo hasta que se "
+"actualice la CLI. El ajuste se conserva."
+
+msgid "Revisions need a newer Proton CLI than the one installed."
+msgstr ""
+"Las revisiones requieren una CLI de Proton más reciente que la instalada."
+
+#, python-brace-format
+msgid "…and {n} more"
+msgstr "…y {n} más"
+
+#, python-brace-format
+msgid ""
+"   ⚠  {n} mapping(s) ask for file revisions, which needs Proton CLI {v} or "
+"newer — falling back to replace (previous versions go to the trash instead "
+"of being kept with the file). Already created revisions are untouched."
+msgstr ""
+"   ⚠  {n} asignación(es) piden revisiones de archivos, lo que exige la CLI "
+"de Proton {v} o más reciente — se recurre al reemplazo (las versiones "
+"anteriores van a la papelera en lugar de permanecer con el archivo). Las "
+"revisiones ya creadas quedan intactas."
+
+msgid "This path is a folder, not the Proton Drive CLI binary:"
+msgstr "Esta ruta es una carpeta, no el binario de la CLI de Proton Drive:"
+
+msgid ""
+"Add the binary's own name at the end of the path (usually “proton-drive”), "
+"or pick the file itself rather than the folder containing it."
+msgstr ""
+"Añada el nombre del binario al final de la ruta (normalmente «proton-"
+"drive»), o seleccione el archivo en sí en vez de la carpeta que lo contiene."
+
+msgid "This file exists but is not executable:"
+msgstr "Este archivo existe pero no es ejecutable:"
+
+msgid ""
+"Give it the execute permission (chmod +x), or point to the correct binary."
+msgstr ""
+"Concédale el permiso de ejecución (chmod +x), o indique el binario correcto."
+
+msgid "Proton CLI unusable"
+msgstr "CLI de Proton inutilizable"
+
+#, python-brace-format
+msgid ""
+"This mappings file has {n} mapping(s) set to keep file revisions:\n"
+"\n"
+"{list}\n"
+"\n"
+"{why} These mappings will run in REPLACE mode: the previous version goes to "
+"the Proton trash instead of staying attached to the file.\n"
+"\n"
+"Their setting is kept, and revisions already created on Proton are "
+"untouched. Updating the Proton CLI restores the intended behaviour."
+msgstr ""
+"Este archivo de asignaciones tiene {n} asignación(es) configurada(s) para "
+"conservar las revisiones de los archivos:\n"
+"\n"
+"{list}\n"
+"\n"
+"{why} Estas asignaciones funcionarán en modo REEMPLAZO: la versión anterior "
+"va a la papelera de Proton en lugar de permanecer adjunta al archivo.\n"
+"\n"
+"Su ajuste se conserva, y las revisiones ya creadas en Proton quedan "
+"intactas. Actualizar la CLI de Proton restablece el comportamiento previsto."
+
+msgid "Proton CLI binary unusable — open “⚙ Configuration…” to check its path."
+msgstr ""
+"Binario de la CLI de Proton inutilizable — abra «⚙ Configuración…» para "
+"comprobar su ruta."
+
+msgid "The installed Proton CLI is too old to create them."
+msgstr "La CLI de Proton instalada es demasiado antigua para crearlas."
+
+msgid ""
+"The Proton CLI version could not be determined, so revisions cannot be used."
+msgstr ""
+"No se pudo determinar la versión de la CLI de Proton, por lo que no se "
+"pueden usar las revisiones."
+
+msgid ""
+"This mapping asks for revisions, but the Proton CLI version could not be "
+"determined, so they cannot be used: it will run in replace mode. The setting "
+"is kept."
+msgstr ""
+"Esta asignación pide revisiones, pero no se pudo determinar la versión de la "
+"CLI de Proton: no pueden usarse y funcionará en modo reemplazo. El ajuste se "
+"conserva."
+
+msgid ""
+"Revisions are unavailable: the Proton CLI version could not be determined."
+msgstr ""
+"Revisiones no disponibles: no se pudo determinar la versión de la CLI de "
+"Proton."
+
+#, python-brace-format
+msgid "❌ Proton CLI binary unusable: {p}"
+msgstr "❌ Binario de la CLI de Proton inutilizable: {p}"
+
+#, python-brace-format
+msgid ""
+"   ⚠  {n} mapping(s) ask for file revisions, but the Proton CLI version "
+"could not be determined ({v} or newer is required) — falling back to "
+"replace. Already created revisions are untouched."
+msgstr ""
+"   ⚠  {n} asignación(es) piden revisiones de archivos, pero no se pudo "
+"determinar la versión de la CLI de Proton (se exige {v} o más reciente) — se "
+"recurre al reemplazo. Las revisiones ya creadas quedan intactas."
+
+msgid "Save this path anyway?"
+msgstr "¿Guardar esta ruta de todos modos?"
+
+msgid "Save anyway"
+msgstr "Guardar de todos modos"
+
+msgid "Fix the path"
+msgstr "Corregir la ruta"
