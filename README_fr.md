@@ -2,6 +2,14 @@
 
 # Synchro Proton Drive via CLI officiel (Linux)
 
+**Sauvegarde à sens unique** : ce logiciel envoie vos dossiers locaux **vers**
+Proton Drive, et rien d'autre. Il ne télécharge jamais depuis Proton, ne
+réconcilie pas les deux côtés, et ne remplace pas un client de synchronisation
+bidirectionnelle. Ce qui est modifié directement sur Proton Drive n'est pas
+redescendu sur votre machine — et sera écrasé au passage suivant si le fichier
+local a changé. Si vous cherchez une synchro dans les deux sens, ce n'est pas
+le bon outil.
+
 Document de référence pour ce projet.
 
 > **Pour lancer l'application :**

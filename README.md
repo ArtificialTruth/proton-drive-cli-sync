@@ -2,6 +2,13 @@
 
 # Proton Drive sync via the official CLI (Linux)
 
+**One-way backup**: this software pushes your local folders **to** Proton Drive,
+and nothing else. It never downloads from Proton, does not reconcile the two
+sides, and is not a replacement for a two-way sync client. Anything changed
+directly on Proton Drive is not brought back to your machine — and will be
+overwritten on the next run if the local file has changed. If you are looking
+for sync in both directions, this is not the right tool.
+
 Reference document for this project.
 
 > **To start the application:**

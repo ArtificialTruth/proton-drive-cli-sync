@@ -2,6 +2,9 @@
 
 # Installation — Temps réel (couche 5)
 
+> **Sauvegarde à sens unique** : les watchers détectent les changements **locaux**
+> pour les envoyer vers Proton Drive. Rien n'est jamais téléchargé depuis Proton.
+
 Complément à `INSTALLATION-systemd.fr.md`. Le temps réel ajoute **trois démons** au
 timer nocturne déjà en place : deux sur la **machine locale** (pilotés depuis le GUI) et
 un sur le **NAS** (installé manuellement, géré sur le NAS).

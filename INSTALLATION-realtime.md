@@ -2,6 +2,9 @@
 
 # Installation — Real-time layer
 
+> **One-way backup**: the watchers detect **local** changes in order to push them
+> to Proton Drive. Nothing is ever downloaded from Proton.
+
 Companion to `INSTALLATION-systemd.md`. The real-time layer adds **three daemons**
 on top of the nightly timer already in place: two on the **desktop** (driven from
 the GUI) and one on the **NAS** (installed manually, managed on the NAS).

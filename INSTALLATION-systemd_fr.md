@@ -2,6 +2,9 @@
 
 # Automatisation de la synchro Proton Drive avec systemd (timer --user)
 
+> **Sauvegarde à sens unique** : ce logiciel envoie vos dossiers locaux **vers**
+> Proton Drive et ne télécharge jamais depuis Proton.
+
 Planifie la synchro une fois par jour à 3h00, dans le contexte de la session
 utilisateur (donc avec accès au trousseau GNOME déverrouillé).
 
