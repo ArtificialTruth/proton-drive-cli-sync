@@ -3660,13 +3660,6 @@ msgid "    itself.)"
 msgstr "    résout d'elle-même.)"
 
 msgid ""
-"    ⏳ cold folder — deferred to the scheduled pass (its parent folder is "
-"not indexed yet)"
-msgstr ""
-"    ⏳ dossier froid — différé au passage planifié (son dossier parent n'est "
-"pas encore indexé)"
-
-msgid ""
 "Propagate deletions (--delete)\n"
 "\n"
 "This box only affects the MANUAL “▶ Run sync” button. Priming and Reset "
@@ -3969,3 +3962,9 @@ msgstr "Enregistrer quand même"
 
 msgid "Fix the path"
 msgstr "Corriger le chemin"
+
+msgid ""
+"    ⏳ cold folder — will be picked up as soon as its parent folder is "
+"indexed"
+msgstr ""
+"    ⏳ dossier froid — sera repris dès que son dossier parent sera indexé"

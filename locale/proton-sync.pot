@@ -3015,11 +3015,6 @@ msgid "    itself.)"
 msgstr ""
 
 msgid ""
-"    ⏳ cold folder — deferred to the scheduled pass (its parent folder is "
-"not indexed yet)"
-msgstr ""
-
-msgid ""
 "Propagate deletions (--delete)\n"
 "\n"
 "This box only affects the MANUAL “▶ Run sync” button. Priming and Reset "
@@ -3211,4 +3206,9 @@ msgid "Save anyway"
 msgstr ""
 
 msgid "Fix the path"
+msgstr ""
+
+msgid ""
+"    ⏳ cold folder — will be picked up as soon as its parent folder is "
+"indexed"
 msgstr ""

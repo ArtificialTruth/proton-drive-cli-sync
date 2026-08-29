@@ -24,7 +24,7 @@ Principes (décidés en conception) :
 
 Un démon par utilisateur (sa session, son trousseau, ses mappings).
 """
-__version__ = "1.5.3"   # version propre à CE fichier ; incrémentée quand il change (indépendant de GitHub)
+__version__ = "1.5.5"   # version propre à CE fichier ; incrémentée quand il change (indépendant de GitHub)
 
 import os
 import sys
@@ -485,7 +485,32 @@ class DebounceState:
         return not was_known
 
     def clear_cold(self, target_dir):
+        """Oublie l'état froid de CE dossier, et de TOUTE sa descendance.
+
+        POURQUOI la descendance. `sync_folder` est récursif : une synchro
+        réussie sur un dossier a parcouru et mis en cache tout ce qui est en
+        dessous. Les descendants marqués froids ne le sont donc PLUS à cet
+        instant — l'information est devenue fausse, on la retire.
+
+        Sans cela, ils restaient écartés par `is_cold_recent()` pendant
+        COLD_RECHECK_SECONDS (30 min) alors que leur parent venait de les
+        indexer. Constaté en production le 28 août : une archive décompressée
+        pose un marqueur par dossier ; ceux traités AVANT la racine partent en
+        « dossier froid », la racine réussit 5 minutes plus tard et indexe tout,
+        mais ces quatre-là attendaient encore 25 minutes. Leur sort ne tenait
+        qu'à l'ORDRE de lecture des marqueurs.
+
+        Le délai de 30 min garde tout son sens pour le vrai cas froid : celui
+        où aucun parcours parent n'a eu lieu.
+
+        Si l'invalidation se trompe (le parcours du parent n'a pas tout indexé),
+        le dossier repart en code 3 et se remarque froid : le coût maximal est
+        un lancement de moteur inutile.
+        """
         self.cold.pop(target_dir, None)
+        prefixe = target_dir.rstrip("/") + "/"
+        for d in [k for k in self.cold if k.startswith(prefixe)]:
+            self.cold.pop(d, None)
 
 
 # ─────────────────────────────────────────────────────────────────────────
@@ -719,8 +744,16 @@ def process_ready(state, target_dir, mappings, config_path, log, runner=None):
         _restore_markers(markers, log=log)
         state.clear(target_dir)
         state.mark_cold(target_dir, time.monotonic())
-        log(_("    ⏳ cold folder — deferred to the scheduled pass "
-              "(its parent folder is not indexed yet)"))
+        # Le message annonçait « différé au passage planifié » : c'était vrai
+        # tant que la reprise attendait COLD_RECHECK_SECONDS (30 min), donc
+        # souvent la nuit. Depuis que clear_cold() invalide la descendance, la
+        # reprise a lieu au cycle SUIVANT l'indexation du parent — mesuré à
+        # 2 min 39 s en production le 28 août, contre 30 min auparavant. Le
+        # passage planifié n'est plus qu'un filet de dernier recours, quand
+        # aucun parcours parent n'a lieu. Le message promettait donc pire que
+        # ce qui se produit.
+        log(_("    ⏳ cold folder — will be picked up as soon as its parent "
+              "folder is indexed"))
         return False
     elif code == 4:
         # COMPTE Proton changé : le cache appartient à l'ancien compte — le
