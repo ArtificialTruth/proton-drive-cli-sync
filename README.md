@@ -11,11 +11,7 @@ for sync in both directions, this is not the right tool.
 
 Reference document for this project.
 
-> **To start the application:**
->
-> ```bash
-> python3 proton_mapping_editor.py
-> ```
+> **To start the application:** `python3 proton_mapping_editor.py`
 >
 > This is the **only** script you run: it opens the mappings editor, from which
 > everything is driven (sync, priming, scheduling, real-time, configuration). The
@@ -264,11 +260,13 @@ TWO accepted formats (backward compatibility):
 - `type: file` -> a single file (useful for VeraCrypt containers — a deliberate per-file whitelist choice, so a new sensitive container added later never ends up on Proton by accident).
 
 **Deletion fields (optional, per mapping)** — see the "Deletion propagation" section below:
+
 - `allow_delete`: `true`/`false` (absent = false = additive, never deletes). Allows this mapping to propagate local deletions to Proton.
 - `delete_mode`: `"trash"` (Proton trash, recoverable until you empty it) or `"permanent"`
 - `conflict_mode`: `"replace"` (default — the previous version goes to the trash) or `"revision"` (it stays **attached to the file**, reachable through right-click → "See version history" in the web app). Revisions count against your quota, with a retention set **globally on the account** on Proton's side (up to 10 years, 200 versions). On a large file rewritten in full at every drop they pile up as complete copies — best kept for small, frequently edited files. Needs Proton CLI **0.8.0** or newer; below that it falls back to `"replace"` with a warning, and the setting is preserved
 
-  > **This setting also depends on your Proton account.** Version history is configured **account-wide**, under *Settings → Proton Drive → Version history*: "Don't keep versions", 7 days, 30 days, 180 days, 365 days or 10 years. **If it is turned off, a mapping in `revision` mode keeps nothing** — the upload succeeds normally, with no error and no warning, but no version is retained. The application cannot detect this setting: it only knows the CLI version. So check on Proton's side before relying on revisions. (A change to that setting takes a few minutes to take effect.) (definitive, irreversible). The mapping's mode is authoritative.
+  **This setting also depends on your Proton account.** Version history is configured **account-wide**, under *Settings → Proton Drive → Version history*: "Don't keep versions", 7 days, 30 days, 180 days, 365 days or 10 years. **If it is turned off, a mapping in `revision` mode keeps nothing** — the upload succeeds normally, with no error and no warning, but no version is retained. The application cannot detect this setting: it only knows the CLI version. So check on Proton's side before relying on revisions. (A change to that setting takes a few minutes to take effect.) (definitive, irreversible). The mapping's mode is authoritative.
+
 - `source_kind`: `"nfs"` or `"local"`. Auto-detected by the GUI, confirmed when editing. Used by the safety guard: an `nfs` source only deletes if the network mount is alive.
 
 ### Exclusions
@@ -279,6 +277,7 @@ Two combined mechanisms, applying to **folders AND files**, by **name** (not ful
 - `patterns`: shell-style glob patterns, case-insensitive (e.g. `*.tmp`, `.Trash-*`, `~*`)
 
 Two cumulative levels:
+
 - **Global**: apply to all mappings
 - **Per mapping**: add to the global ones, for that mapping only (the `exclusions` key inside the entry)
 
@@ -307,6 +306,7 @@ With `--verify-hash`, it adds a SHA1 comparison when sizes match — detecting c
 **Solution**: `~/.proton_sync_cache/<mapping_name>.cache` (JSON). For each successfully synced folder, we store a fingerprint: the folder's mtime + the sorted list of (name, size, mtime) of its direct files. On the next pass, if the local fingerprint is identical -> we **skip the CLI call entirely** ("⚡ cache valid") and just descend into subfolders. Result: a no-change pass drops from hours to seconds.
 
 **Safeguards**:
+
 - The cache is NEVER a source of truth, just a shortcut. Deleting it forces a full re-scan.
 - A folder with a failed upload is NOT cached -> automatically retried at the next pass.
 - `--dry-run` never touches the cache.
@@ -337,10 +337,12 @@ By default, the engine is **additive**: it sends new and modified files, but nev
 This double level is deliberate: the JSON declares the intent, the command line arms the mechanism. It prevents a deletion from firing by accident (e.g. a routine scheduled pass).
 
 **Deletion mode** — set per mapping via `delete_mode`:
+
 - `"trash"` (default): sent to the Proton trash, recoverable until you empty it.
 - `"permanent"`: definitive deletion, irreversible. The mapping's mode is authoritative once `--delete` is active (no second flag).
 
 **Mount safety guard (`mount_check.py`)** — the key protection. Before any deletion in a mapping, the engine verifies that the source is "healthy" according to its `source_kind`:
+
 - If `source_kind: "nfs"`, the source MUST currently be backed by a live network mount (nfs/nfs4). If the NAS is disconnected, the path falls back to local (ext4) and appears empty — the engine detects the inconsistency and **blocks all deletions** in that mapping (uploads continue). That's what prevents the catastrophe "NAS down → everything seems deleted → the backup gets emptied".
 - If `source_kind: "local"`, we just require the source to exist and be readable.
 - If the kind is not declared, or if `mount_check.py` is missing from the folder: deletion refused for safety.
@@ -348,6 +350,7 @@ This double level is deliberate: the JSON declares the intent, the command line 
 **`mount_check.py` MUST live next to `proton_sync.py`** (same folder). Without it, all deletions are refused (safety guard).
 
 **Cache interaction (the `delete_synced` flag)** — to keep the cache's speed in `--delete` mode, each cache entry carries a flag saying whether the remote side has already been reconciled (orphans handled) during a `--delete` pass. Consequences:
+
 - The **first** `--delete` pass checks the whole remote side (slower), then marks folders as reconciled.
 - **Subsequent** `--delete` passes skip folders that are unchanged AND already reconciled (fast, like a normal pass).
 - A local deletion changes the folder's fingerprint → it is re-checked at the next `--delete` → the orphan is propagated.
@@ -415,6 +418,7 @@ python3 ~/Logiciels/Proton-drive/proton_sync.py \
 ```
 
 Options:
+
 - `--dry-run`: shows what would be done without transferring anything (and without touching the cache)
 - `--verify-hash`: adds SHA1 verification (slower, reads every file; bypasses the cache; monthly use)
 - `--ignore-cache`: forces a full re-check on the Proton side (rebuilds the cache on the fly)
@@ -478,7 +482,7 @@ Cross-cutting rule: **everything depends first on a lowercase extension** (other
 - OK: **real-time exclusion guard** — `sync_subpath` tests the target AND its ancestors (stable tag `[subpath-excluded]`), the consumer shows "🚫 excluded"; validated in production (`logs`, `__pycache__`, `.Trash-1000/info`)
 - OK: **exclusion-aware cache** — the exclusion set fingerprint enters the signature: an exclusion change forces reconciliation at the next `--delete` (automatic cleanup of newly excluded orphans, e.g. `.dtrash`, `thumbnails-digikam.db`)
 - OK: **"Run history" panel** — last run isolated by start boundary (reliable after a reboot), date picker, success/failure summary; validated (the July 1st collision is visible there)
-- OK: **complete FR/EN internationalization** — GUI, engine, daemons, systemd descriptions; "🌍 Language…" selector, gettext catalog (729 messages), stable tag and multilingual markers for detections; validated in production in both languages
+- OK: **complete FR/EN internationalization** — GUI, engine, daemons, systemd descriptions; "🌍 Language…" selector, gettext catalog (766 messages), stable tag and multilingual markers for detections; validated in production in both languages
 - TO DO (optional): decide whether to enable `--delete` in the schedule (see Option A / Option B below)
 - TO DO (optional): schedule a periodic `--verify-hash` check (monthly /IS equivalent)
 - TO DO (optional): clean up `.caltrash` files uploaded before the exclusions were added
@@ -495,6 +499,7 @@ This section describes the behaviors added when full control from the GUI went i
 The cache now records, per folder, a **`subtree_complete`** flag: true only if the folder was fully traversed without failure AND all its non-excluded children are themselves complete. Completeness **propagates bottom-up**: a complete root implies its whole tree is complete.
 
 In real time (`--subpath`), the engine tests the completeness of the **parent** of the targeted subpath:
+
 - If the parent is complete, a **new** folder created inside it is handled immediately (the reference cache exists).
 - If the area has **not been analyzed yet** (an inherited "warm" root whose children were never traversed), real-time **defers to the scheduled pass** (exit code 3, "folder not analyzed yet — deferred"). It never launches a long discovery traversal.
 
@@ -517,6 +522,7 @@ With no selection, priming covers all mappings. Multiple selection is done with 
 ### Per-mapping status indicator ("Ready" column ✅/⏳/—)
 
 The mappings table shows a status column:
+
 - **✅**: folder mapping ready for real-time (root `subtree_complete` AND current exclusion fingerprint identical to the one stored in the cache);
 - **⏳**: to be primed (never analyzed, OR exclusions changed since consolidation — see below);
 - **—**: file-type mapping (no tree to analyze, handled directly in real-time, no priming needed).
@@ -533,6 +539,7 @@ CLI authentication is done **through the browser**: no credential passes through
 ### Progressive cache persistence
 
 The cache is written **incrementally** (throttled), and a signal handler (SIGTERM/SIGINT) saves it before exiting. An interruption (Ctrl+C, service stop, power loss) therefore **no longer restarts from zero**:
+
 - On interruption: "⏹ Interrupted — cache progress saved" (shown only if the write succeeded, never a false promise).
 - On startup over a populated cache: "↺ Resuming on an existing cache — work already recorded won't be redone" (covers a power loss where the interruption message could not be shown).
 
@@ -642,6 +649,7 @@ The watchers do **not** apply the exclusions: they write a marker for every chan
 **The known problem** (confirmed by Reddit threads on "PD CLI on Linux Desktop - Cron"): the CLI needs the secrets keyring unlocked, which **classic cron does not provide** (minimal environment, no graphical session, no keyring). The `bash -ic` workaround seen on Reddit sets environment variables but NOT keyring access — that's the real root of the problem.
 
 **Chosen approach (better than cron), now in place**:
+
 - **`systemd --user` timer** (not cron) — runs in the user's session context, with natural keyring access. Files `proton-sync.service` + `proton-sync.timer`, installed under `~/.config/systemd/user/`.
 - **`loginctl enable-linger myuser` and `user2`** — so user services persist even without an active graphical login (enabled from User1's session, who is a sudoer; User2 is not).
 - **Keyring unlocking**: chosen approach = **graphical session kept permanently open on the local machine** (a dedicated home mini-PC). The keyring stays unlocked, no security compromise.
@@ -653,6 +661,7 @@ See the detailed guides `INSTALLATION-systemd.md` and `INSTALLATION-realtime.md`
 **Install and tune from the GUI (main path)**: the "⏰ Schedule…" window installs/updates the timer in one click (it **generates** `proton-sync.service` + `.timer`, reloads systemd and enables the timer — no manual copying). It also lets you choose the **frequency**: daily, **weekly** (day + time of your choice), or hourly. Manual copying (`cp` of the units) remains documented as a fallback.
 
 **Chosen systemd details**:
+
 - `OnCalendar` **configurable from the GUI**: `*-*-* 03:00:00` (daily 3 am) originally; with the real-time layer covering the day-to-day, this pass now serves as a **safety net** and is happily set to **weekly** (e.g. `Sun *-*-* 03:00:00`).
 - `Persistent=true` (catches up if the machine was off — precious for a weekly net: a missed pass replays at the next startup)
 - `RandomizedDelaySec=300` (staggers User1 and User2 by a few minutes so they don't hit the API at the same time)
@@ -711,6 +720,7 @@ The project is **bilingual French/English**, via **GNU gettext** (standard Pytho
 - **`build_locales.sh`**: a **development** tool only (recompile the `.po` files after editing; requires the `gettext` package). Never required in production.
 
 **Contributor notes** (lessons learned the hard way):
+
 - **Never use `_` as a throwaway variable** (`ok, _ = f()`) in a marked file: it shadows gettext's `_` for the whole function (`UnboundLocalError`). Use `_err`, `_x`, etc. Systematic audit before shipping.
 - **Detections decoupled from displayed text**: everything machine-parsed goes through **stable tags** outside translation (`[subpath-excluded]`) or **multilingual marker lists** (`"Terminé."`/`"Done."` in `_parse_result`) — never through the translated string alone.
 - No `_(f"...")`: interpolation would happen before translation. Use `_("... {x}").format(x=...)`.

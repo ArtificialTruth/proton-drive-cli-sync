@@ -12,11 +12,7 @@ le bon outil.
 
 Document de référence pour ce projet.
 
-> **Pour lancer l'application :**
->
-> ```bash
-> python3 proton_mapping_editor.py
-> ```
+> **Pour lancer l'application :** `python3 proton_mapping_editor.py`
 >
 > C'est le **seul** script à exécuter : il ouvre l'éditeur de mappings, d'où tout
 > se pilote (synchro, amorçage, planification, temps réel, configuration). Les
@@ -266,11 +262,13 @@ DEUX formats acceptés (rétrocompatibilité) :
 - `type: file` -> un fichier unique (utile pour les conteneurs VeraCrypt — choix délibéré de liste blanche par fichier individuel, pour éviter qu'un nouveau conteneur sensible ajouté plus tard ne se retrouve par erreur sur Proton).
 
 **Champs de suppression (optionnels, par mapping)** — voir la section « Propagation des suppressions » plus bas :
+
 - `allow_delete` : `true`/`false` (absent = false = additif, jamais de suppression). Autorise ce mapping à propager les suppressions locales vers Proton.
 - `delete_mode` : `"trash"` (corbeille Proton, récupérable tant qu'elle n'est pas vidée) ou `"permanent"`
 - `conflict_mode` : `"replace"` (défaut — la version précédente part à la corbeille) ou `"revision"` (elle reste **attachée au fichier**, consultable par clic droit → « Voir l'historique des versions » dans l'interface web). Les révisions comptent dans le quota, avec une rétention **globale au compte** réglée côté Proton (jusqu'à 10 ans, 200 versions). Sur un gros fichier réécrit en entier à chaque dépôt, elles se cumulent en copies complètes — à réserver aux fichiers petits et souvent modifiés. Exige le CLI **0.8.0** ou plus récent ; en dessous, repli automatique sur `"replace"` avec avertissement, le réglage étant conservé (définitif, irréversible). Le mode du mapping fait foi.
 
-  > **Ce réglage dépend aussi de votre compte Proton.** L'historique des versions se règle **globalement**, dans *Paramètres → Proton Drive → Historique des versions* : « Ne pas garder les versions », 7 j, 30 j, 180 j, 365 j ou 10 ans. **S'il est désactivé, un mapping en mode `revision` ne conserve rien** — l'envoi réussit normalement, sans erreur ni avertissement, mais aucune version n'est gardée. L'application ne peut pas détecter ce réglage : elle ne connaît que la version du CLI. Vérifiez donc côté Proton avant de compter sur les révisions. (Un changement de ce réglage met quelques minutes à devenir effectif.)
+  **Ce réglage dépend aussi de votre compte Proton.** L'historique des versions se règle **globalement**, dans *Paramètres → Proton Drive → Historique des versions* : « Ne pas garder les versions », 7 j, 30 j, 180 j, 365 j ou 10 ans. **S'il est désactivé, un mapping en mode `revision` ne conserve rien** — l'envoi réussit normalement, sans erreur ni avertissement, mais aucune version n'est gardée. L'application ne peut pas détecter ce réglage : elle ne connaît que la version du CLI. Vérifiez donc côté Proton avant de compter sur les révisions. (Un changement de ce réglage met quelques minutes à devenir effectif.)
+
 - `source_kind` : `"nfs"` ou `"local"`. Détecté automatiquement par le GUI, confirmé à l'édition. Sert au garde-fou : une source `nfs` ne supprime que si le montage réseau est vivant.
 
 ### Exclusions
@@ -281,6 +279,7 @@ Deux mécanismes combinés, s'appliquant aux **dossiers ET fichiers**, par **nom
 - `patterns` : motifs glob façon shell, insensible à la casse (ex. `*.tmp`, `.Trash-*`, `~*`)
 
 Deux niveaux qui se cumulent :
+
 - **Globales** : valent pour tous les mappings
 - **Par mapping** : s'ajoutent aux globales, uniquement pour ce mapping (clé `exclusions` dans l'entrée)
 
@@ -309,6 +308,7 @@ Avec `--verify-hash`, ajoute une comparaison SHA1 quand les tailles corresponden
 **Solution** : `~/.proton_sync_cache/<nom_du_mapping>.cache` (JSON). Pour chaque dossier synchronisé avec succès, on stocke une empreinte : mtime du dossier + liste triée des (nom, taille, mtime) de ses fichiers directs. Au passage suivant, si l'empreinte locale est identique -> on **saute complètement l'appel CLI** (« ⚡ cache valide ») et on descend juste dans les sous-dossiers. Résultat : un passage sans changement passe de plusieurs heures à quelques secondes.
 
 **Garde-fous** :
+
 - Le cache n'est JAMAIS une source de vérité, juste un raccourci. Le supprimer force un re-scan complet.
 - Un dossier dont un upload a échoué n'est PAS mis en cache -> automatiquement réessayé au prochain passage.
 - Le `--dry-run` ne touche jamais au cache.
@@ -339,10 +339,12 @@ Par défaut, le moteur est **additif** : il envoie les nouveautés et modificati
 Ce double niveau est délibéré : le JSON déclare l'intention, la ligne de commande active la mécanique. Ça évite qu'une suppression parte par accident (ex. un passage planifié de routine).
 
 **Mode de suppression** — défini par mapping via `delete_mode` :
+
 - `"trash"` (défaut) : envoi à la corbeille Proton, récupérable tant qu'elle n'est pas vidée.
 - `"permanent"` : suppression définitive, irréversible. Le mode du mapping fait foi dès que `--delete` est actif (pas de second flag).
 
 **Garde-fou de montage (`mount_check.py`)** — la protection clé. Avant toute suppression dans un mapping, le moteur vérifie que la source est « saine » selon son `source_kind` :
+
 - Si `source_kind: "nfs"`, la source DOIT être actuellement portée par un montage réseau vivant (nfs/nfs4). Si le NAS est déconnecté, le chemin retombe sur du local (ext4) et apparaît vide — le moteur détecte l'incohérence et **bloque toute suppression** dans ce mapping (les uploads, eux, continuent). C'est ce qui empêche la catastrophe « NAS tombé → tout semble supprimé → on vide le backup ».
 - Si `source_kind: "local"`, on exige juste que la source existe et soit lisible.
 - Si le type n'est pas déclaré, ou si `mount_check.py` est absent du dossier : suppression refusée par sécurité.
@@ -350,6 +352,7 @@ Ce double niveau est délibéré : le JSON déclare l'intention, la ligne de com
 **`mount_check.py` DOIT être placé à côté de `proton_sync.py`** (même dossier). Sans lui, toutes les suppressions sont refusées (garde-fou).
 
 **Interaction avec le cache (drapeau `delete_synced`)** — pour ne pas perdre la vitesse du cache en mode `--delete`, chaque entrée de cache porte un drapeau indiquant si le distant a déjà été réconcilié (orphelins traités) lors d'un passage `--delete`. Conséquence :
+
 - Le **premier** passage `--delete` vérifie tout le distant (plus lent), puis marque les dossiers réconciliés.
 - Les passages `--delete` **suivants** sautent les dossiers inchangés ET déjà réconciliés (rapides, comme un passage normal).
 - Une suppression locale change l'empreinte du dossier → il est revérifié au prochain `--delete` → l'orphelin est propagé.
@@ -420,6 +423,7 @@ python3 ~/Logiciels/Proton-drive/proton_sync.py \
 ```
 
 Options :
+
 - `--dry-run` : affiche ce qui serait fait sans rien transférer (et sans toucher au cache)
 - `--verify-hash` : ajoute la vérification SHA1 (plus lent, lit chaque fichier ; ignore le cache ; usage mensuel)
 - `--ignore-cache` : force la revérification complète côté Proton (reconstruit le cache au fil de l'eau)
@@ -483,7 +487,7 @@ Règle transversale : **tout dépend d'abord de l'extension minuscule** (sinon m
 - OK : **garde-fou d'exclusion en temps réel** — `sync_subpath` teste la cible ET ses ancêtres (tag stable `[subpath-excluded]`), le consommateur affiche « 🚫 exclu » ; validé en prod (`logs`, `__pycache__`, `.Trash-1000/info`)
 - OK : **cache conscient des exclusions** — l'empreinte du jeu d'exclusions entre dans la signature : un changement d'exclusions force la réconciliation au prochain `--delete` (nettoyage automatique des orphelins nouvellement exclus, ex. `.dtrash`, `thumbnails-digikam.db`)
 - OK : **panneau « Journal des passages »** — dernière exécution par frontière de démarrage (fiable après reboot), sélecteur de date, résumé succès/échec ; validé (la collision du 1er juillet y est visible)
-- OK : **internationalisation FR/EN complète** — GUI, moteur, démons, descriptions systemd ; sélecteur « 🌍 Language… », catalogue gettext (729 messages), tag stable et marqueurs multilingues pour les détections ; validée en prod sur les deux langues
+- OK : **internationalisation FR/EN complète** — GUI, moteur, démons, descriptions systemd ; sélecteur « 🌍 Language… », catalogue gettext (766 messages), tag stable et marqueurs multilingues pour les détections ; validée en prod sur les deux langues
 - À FAIRE (optionnel) : décider d'activer ou non `--delete` dans la planification (voir Option A / Option B ci-dessous)
 - À FAIRE (optionnel) : vérification `--verify-hash` périodique à planifier (équivalent /IS mensuel)
 - À FAIRE (optionnel) : nettoyer les `.caltrash` déjà uploadés avant l'ajout des exclusions
@@ -500,6 +504,7 @@ Cette section décrit les comportements ajoutés lors de la mise en production d
 Le cache marque désormais, pour chaque dossier, un champ **`subtree_complete`** : vrai seulement si le dossier a été entièrement parcouru sans échec ET que tous ses enfants non exclus sont eux-mêmes complets. La complétude **remonte de bas en haut** : une racine complète implique que tout son arbre l'est.
 
 En temps réel (`--subpath`), le moteur teste la complétude du **parent** du sous-chemin ciblé :
+
 - Si le parent est complet, un **nouveau** dossier créé dedans est traité immédiatement (le cache de référence existe).
 - Si la zone n'a **pas encore été analysée** (racine « tiède » héritée, enfants jamais parcourus), le temps réel **diffère au passage planifié** (code 3, message « dossier pas encore analysé — différé »). Il ne lance jamais un long parcours de découverte.
 
@@ -522,6 +527,7 @@ Sans sélection, l'amorçage porte sur tous les mappings. La sélection multiple
 ### Indicateur d'état par mapping (colonne « Prêt » ✅/⏳/—)
 
 Le tableau des mappings affiche une colonne d'état :
+
 - **✅** : mapping dossier prêt pour le temps réel (racine `subtree_complete` ET empreinte d'exclusions courante identique à celle stockée dans le cache) ;
 - **⏳** : à amorcer (jamais analysé, OU exclusions changées depuis la consolidation — voir ci-dessous) ;
 - **—** : mapping de type fichier (pas d'arbre à analyser, géré directement en temps réel, aucun amorçage requis).
@@ -538,6 +544,7 @@ L'authentification du CLI se fait **par navigateur** : aucun identifiant ne tran
 ### Persistance progressive du cache
 
 Le cache est écrit **au fil de l'eau** (throttlé), et un gestionnaire de signaux (SIGTERM/SIGINT) le sauve avant de quitter. Une interruption (Ctrl+C, arrêt du service, coupure) ne fait donc **plus repartir de zéro** :
+
 - À l'interruption : « ⏹ Interrompu — progression du cache enregistrée » (affiché seulement si l'écriture a réussi, jamais de fausse promesse).
 - Au démarrage sur un cache peuplé : « ↺ Reprise sur un cache existant — le travail déjà enregistré ne sera pas refait » (couvre le cas d'une coupure de courant où le message d'interruption n'a pas pu s'afficher).
 
@@ -647,6 +654,7 @@ Les watchers **n'appliquent pas** les exclusions : ils déposent un marqueur pou
 **Le problème connu** (confirmé par des discussions Reddit sur « PD CLI on Linux Desktop - Cron ») : le CLI a besoin du trousseau de secrets déverrouillé, ce que **cron classique ne fournit pas** (environnement minimal, pas de session graphique, pas de trousseau). Le contournement `bash -ic` vu sur Reddit règle les variables d'environnement mais PAS l'accès au trousseau — c'est la vraie racine du problème.
 
 **Approche retenue (meilleure que cron), maintenant en place** :
+
 - **Timer systemd `--user`** (pas cron) — tourne dans le contexte de la session utilisateur, avec accès naturel au trousseau. Fichiers `proton-sync.service` + `proton-sync.timer`, installés dans `~/.config/systemd/user/`.
 - **`loginctl enable-linger myuser` et `user2`** — pour que les services utilisateur persistent même sans login graphique actif (activé via la session de User1 qui est sudoer, car User2 ne l'est pas).
 - **Déverrouillage du trousseau** : choix retenu = **session graphique gardée ouverte en permanence sur la machine locale** (mini-PC dédié maison). Le trousseau reste déverrouillé, pas de compromis de sécurité.
@@ -658,6 +666,7 @@ Voir le guide détaillé `INSTALLATION-systemd.fr.md` et `INSTALLATION-realtime.
 **Installation et réglage depuis le GUI (chemin principal)** : la fenêtre « ⏰ Planification… » installe/met à jour le timer en un clic (elle **génère** `proton-sync.service` + `.timer`, recharge systemd et active le timer — aucune copie manuelle). Elle permet aussi de choisir la **fréquence** : quotidien, **hebdomadaire** (jour + heure au choix), ou toutes les heures. La copie manuelle (`cp` des unités) reste documentée comme repli.
 
 **Détails systemd retenus** :
+
 - `OnCalendar` **configurable depuis le GUI** : `*-*-* 03:00:00` (quotidien 3h) à l'origine ; avec la couche temps réel qui assure le quotidien, ce passage sert désormais de **filet** et se règle volontiers en **hebdomadaire** (ex. `Sun *-*-* 03:00:00`).
 - `Persistent=true` (rattrape si la machine était éteinte — précieux pour un filet hebdo : un passage manqué se rejoue au démarrage suivant)
 - `RandomizedDelaySec=300` (décale User1 et User2 de quelques minutes pour ne pas frapper l'API en même temps)
@@ -716,6 +725,7 @@ Le projet est **bilingue français/anglais**, via **GNU gettext** (module Python
 - **`build_locales.sh`** : outil de **développement** uniquement (recompiler les `.po` après édition ; nécessite le paquet `gettext`). Jamais requis en production.
 
 **Notes pour contributeurs** (pièges vécus) :
+
 - **Jamais `_` comme variable jetable** (`ok, _ = f()`) dans un fichier marqué : cela masque le `_` de gettext dans toute la fonction (`UnboundLocalError`). Utiliser `_err`, `_x`, etc. Audit systématique avant livraison.
 - **Détections découplées du texte affiché** : tout ce qui est machine-parsé passe par des **tags stables** hors traduction (`[subpath-excluded]`) ou des **listes de marqueurs multilingues** (`"Terminé."`/`"Done."` dans `_parse_result`) — jamais par la chaîne traduite seule.
 - Pas de `_(f"...")` : l'interpolation précéderait la traduction. Utiliser `_("... {x}").format(x=...)`.

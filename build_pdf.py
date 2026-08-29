@@ -3,7 +3,7 @@
 Réglages validés : corps 13 pt, interligne 1.5, DejaVu Sans ; emoji remplacés
 par des équivalents imprimables (pastilles colorées, glyphes couverts).
 Usage : python3 build_pdf.py SOURCE.md SORTIE.pdf [TITRE]"""
-__version__ = "1.0.0"   # version propre à CE fichier ; incrémentée quand il change (indépendant de GitHub)
+__version__ = "1.1.0"   # version propre à CE fichier ; incrémentée quand il change (indépendant de GitHub)
 
 import sys, subprocess, markdown
 
@@ -18,18 +18,43 @@ REPL = {
     "🟠": '<span style="color:#e08a00">●</span>',
     "🔴": '<span style="color:#d23b3b">●</span>',
     "➕": "+", "➖": "−", "🔄": "↻", "⟳": "↻",
-    "⚡": "", "⏰": "", "⏳": "", "🔓": "", "🌍": "", "📜": "", "📅": "",
+    "⚡": "", "⏰": "", "🔓": "", "🌍": "", "📜": "", "📅": "",
+    # ⏳ NE DOIT PAS disparaître : il porte du sens (état « à amorcer ») et,
+    # entouré de gras dans la source, sa disparition laissait un `****` vide
+    # que Markdown ne sait pas apparier — le gras déraillait sur plusieurs
+    # paragraphes après. Constaté dans le PDF du 28 août.
+    "⏳": "[...]",
+    # 🚫 rendait ⊘, que la ligne suivante retransformait en « x » : double
+    # substitution, le symbole se confondait avec celui de « dossier disparu ».
+    # ⊘ (U+2298) est couvert par DejaVu Sans — on le garde tel quel.
     "🚫": "⊘", "🗑": "[corbeille]",
     "✅": "[OK]", "❌": "[X]", "⚠": "[!]",
     "🧪": "", "🧹": "", "💾": "", "📂": "", "🔃": "", "🔎": "",
-    "▶": ">", "⏭": "»", "⏸": "||", "⏹": "[stop]", "↪": "->", "⊘": "x",
-    "✓": "OK", "✗": "X", "🌐": "", "•": "•",
+    "▶": ">", "⏭": "»", "⏸": "||", "⏹": "[stop]", "↪": "->",
+    # ✓ donnait « OK », d'où des « OK ok » illisibles quand la source cite la
+    # sortie réelle du logiciel. √ (U+221A) est couvert et se lit comme une coche.
+    "✓": "√", "✗": "×", "🌐": "", "•": "•",
 }
 for k, v in REPL.items():
     text = text.replace(k, v)
 
+# Filet : si une substitution vide a malgré tout laissé une emphase creuse,
+# on la retire AVANT que Markdown ne tente de l'apparier.
+import re as _re
+text = _re.sub(r"\*\*\s*\*\*", "", text)
+text = _re.sub(r"(?<!\*)\*\s*\*(?!\*)", "", text)
+
 body = markdown.markdown(text, extensions=["tables", "fenced_code"])
+
+# Les images sont référencées RELATIVEMENT au document source (docs/images/…).
+# Le HTML intermédiaire étant écrit dans /tmp, ces chemins n'y menaient nulle
+# part : les quatre captures du README sortaient en cadres vides. Une balise
+# <base> pointant sur le dossier du source rétablit la résolution.
+import os as _os
+_base = _os.path.dirname(_os.path.abspath(src)) + _os.sep
+
 html = f"""<!DOCTYPE html><html><head><meta charset="utf-8">
+<base href="file://{_base}">
 <style>
 body {{ font-family: "DejaVu Sans", sans-serif; font-size: 13pt;
        line-height: 1.5; color: #1a1a1a; }}
@@ -48,6 +73,7 @@ th {{ background: #e8e8e8; }}
 blockquote {{ border-left: 4px solid #bbb; margin-left: 0; padding-left: 12px;
               color: #444; }}
 li {{ margin-bottom: 4px; }}
+img {{ max-width: 100%; height: auto; border: 1px solid #ccc; }}
 </style></head><body>{body}</body></html>"""
 
 open("/tmp/doc.html", "w", encoding="utf-8").write(html)
