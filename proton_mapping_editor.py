@@ -12,7 +12,7 @@ Usage :
     python3 proton_mapping_editor.py                # ouvre un sélecteur de fichier
     python3 proton_mapping_editor.py mappings-user1.json
 """
-__version__ = "1.22.0"   # version propre à CE fichier ; incrémentée quand il change (indépendant de GitHub)
+__version__ = "1.23.0"   # version propre à CE fichier ; incrémentée quand il change (indépendant de GitHub)
 
 import json
 import os
@@ -4546,6 +4546,7 @@ class MappingEditor(tk.Tk):
                 self._last_shown_folder = None
                 self._folders_shown = 0
                 self._auth_failed_seen = False
+                self._prime_failures_seen = False
                 for line in self.sync_process.stdout:
                     if "[account-changed]" in line and "→" not in line:
                         self._ui(lambda: self.status.set(
@@ -4977,6 +4978,7 @@ class MappingEditor(tk.Tk):
             self._last_shown_folder = None
             self._folders_shown = 0
             self._auth_failed_seen = False
+            self._prime_failures_seen = False
 
             with open(log_path, "w", encoding="utf-8") as logf:
                 self.sync_process = subprocess.Popen(
@@ -4990,6 +4992,16 @@ class MappingEditor(tk.Tk):
                               "account.")))
                     if "[auth-failed]" in line:
                         self._auth_failed_seen = True
+                    # Le moteur sort en code 0 même quand des fichiers ont échoué :
+                    # c'est VOULU (il journalise et poursuit, jamais d'interruption
+                    # d'un passage sans écran). Mais annoncer « code 0 » au GUI se
+                    # lit comme une réussite — constaté le 1er septembre : 4 archives
+                    # refusées par le serveur, dossier non mis en cache, et pourtant
+                    # « Amorçage terminé (code 0) ». On repère donc le tag STABLE que
+                    # le moteur émet quand des fichiers restent en échec (jamais le
+                    # texte traduit — même principe que [auth-failed]).
+                    if "[upload-failed]" in line:
+                        self._prime_failures_seen = True
                     self._feed_output(line)          # affichage (brut ou épuré)
                     # @@PROGRESS non écrit au log (protocole interne, cf. B9/site 1).
                     if not line.startswith("@@PROGRESS"):
@@ -4998,10 +5010,17 @@ class MappingEditor(tk.Tk):
                     self._prime_current = self._extract_path(line) or self._prime_current
                 self.sync_process.wait()
             code = self.sync_process.returncode
+            _echecs = getattr(self, "_prime_failures_seen", False)
             if is_reset:
-                self._append_output("\n=== " + _("Reset finished (code {c})").format(c=code) + " ===\n")
+                self._append_output("\n=== " + (
+                    _("Reset finished (code {c}) — but some files failed; those "
+                      "folders will be retried").format(c=code) if _echecs
+                    else _("Reset finished (code {c})").format(c=code)) + " ===\n")
             else:
-                self._append_output("\n=== " + _("Priming finished (code {c})").format(c=code) + " ===\n")
+                self._append_output("\n=== " + (
+                    _("Priming finished (code {c}) — but some files failed; those "
+                      "folders will be retried").format(c=code) if _echecs
+                    else _("Priming finished (code {c})").format(c=code)) + " ===\n")
             if getattr(self, "_auth_failed_seen", False):
                 self._ui(self._mark_auth_disconnected)
             else:
