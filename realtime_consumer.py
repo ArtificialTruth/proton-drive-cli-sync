@@ -24,7 +24,7 @@ Principes (décidés en conception) :
 
 Un démon par utilisateur (sa session, son trousseau, ses mappings).
 """
-__version__ = "1.5.5"   # version propre à CE fichier ; incrémentée quand il change (indépendant de GitHub)
+__version__ = "1.5.7"   # version propre à CE fichier ; incrémentée quand il change (indépendant de GitHub)
 
 import os
 import sys
@@ -752,8 +752,18 @@ def process_ready(state, target_dir, mappings, config_path, log, runner=None):
         # passage planifié n'est plus qu'un filet de dernier recours, quand
         # aucun parcours parent n'a lieu. Le message promettait donc pire que
         # ce qui se produit.
-        log(_("    ⏳ cold folder — will be picked up as soon as its parent "
-              "folder is indexed"))
+        # La racine d'un mapping n'a AUCUN parent qui sera parcouru : lui
+        # promettre une reprise « dès que son parent sera indexé » annonce
+        # quelque chose qui n'arrivera jamais (constaté le 1er septembre :
+        # incus-exports répétait ce message chaque minute après un amorçage
+        # échoué, alors que seul un nouveau passage complet pouvait le
+        # débloquer). Le moteur distingue les deux cas par tag stable.
+        if "[subpath-cold-root]" in output:
+            log(_("    ⏳ this mapping has never been fully analysed — run "
+                  "“Prime the cache”, or wait for the scheduled pass"))
+        else:
+            log(_("    ⏳ cold folder — will be picked up as soon as its parent "
+                  "folder is indexed"))
         return False
     elif code == 4:
         # COMPTE Proton changé : le cache appartient à l'ancien compte — le
@@ -1163,10 +1173,23 @@ def main():
         if status in ("locked", "busy", "account"):
             if waiting_reason != status:
                 if status == "locked":
-                    log(_("⏳ Proton authentication unavailable (expired session "
-                          "or locked keyring) — markers kept, no pass launched. "
-                          "Run “proton-drive auth login” (or the “Sign in to "
-                          "Proton” button) to renew the session."))
+                    # DEUX causes, jamais une seule affirmée. `keyring_ready()`
+                    # passe par `--check-auth`, qui exécute `filesystem list /` :
+                    # un VRAI appel réseau. Une panne ou un refus du serveur
+                    # ("Too many server errors") le fait échouer exactement comme
+                    # un trousseau verrouillé. Constaté le 1er septembre : le
+                    # message est apparu deux fois pendant que Proton refusait des
+                    # envois, puis la sonde a repassé seule — sans aucune action
+                    # de l'utilisateur, qu'on envoyait pourtant se reconnecter.
+                    # Même correction que le message du moteur (27 août) : on
+                    # n'affirme pas une cause qu'on ne connaît pas.
+                    log(_("⏳ Proton unreachable — markers kept, no pass launched. "
+                          "Either this user's session is not open (locked "
+                          "keyring), or Proton itself is temporarily unavailable. "
+                          "If your session is open, wait for the next cycle: a "
+                          "temporary outage clears on its own. Otherwise run "
+                          "“proton-drive auth login” (or the “Sign in to Proton” "
+                          "button)."))
                 elif status == "account":
                     log(_("⛔ Proton account changed — the cache belongs to the "
                           "previous account. Markers kept; prime the cache (or "

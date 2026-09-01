@@ -26,7 +26,7 @@ Variable d'environnement :
     PROTON_DRIVE_CLI   chemin vers le binaire proton-drive
                         (par défaut : ~/Logiciels/Proton-drive/proton-drive)
 """
-__version__ = "1.7.1"   # version propre à CE fichier ; incrémentée quand il change (indépendant de GitHub)
+__version__ = "1.7.3"   # version propre à CE fichier ; incrémentée quand il change (indépendant de GitHub)
 
 import argparse
 import atexit
@@ -1521,7 +1521,12 @@ def upload_batch(local_paths, remote_parent, dry_run=False, verbose=False,
     if vanished:
         print(_("    – {n} file(s) vanished (deleted meanwhile) — skipped, not a failure.").format(n=vanished))
     if failures:
-        print(_("    ❌ {n} file(s) still failing (see the failures log: {log}).").format(
+        # Tag STABLE, hors traduction : le GUI le détecte pour dire, à la fin
+        # d'un amorçage, que des fichiers ont échoué — le moteur sortant en
+        # code 0 par conception, « terminé (code 0) » se lisait comme une
+        # réussite alors que le dossier n'avait pas été mis en cache.
+        print("[upload-failed] " + _(
+            "    ❌ {n} file(s) still failing (see the failures log: {log}).").format(
             n=len(failures), log=FAILURES_LOG))
         return False
     # Tout a fini par passer (le lot échouait mais chaque fichier monte seul, ou a
@@ -2086,9 +2091,26 @@ def sync_subpath(mapping, subpath, dry_run=False, verbose=False, verify_hash=Fal
         target = os.path.normpath(subpath)
         ref = target if target == source else os.path.dirname(target)
         if not cache.subtree_complete(ref):
-            print("  ⏳ [subpath-cold] " + _("folder not fully indexed yet "
-                  "(cache not built by a full pass), deferred to scheduling: {p}")
-                  .format(p=subpath))
+            # DEUX situations très différentes, que le consommateur doit pouvoir
+            # distinguer — d'où deux tags STABLES (hors traduction) :
+            #
+            #   [subpath-cold-root] la cible EST la racine du mapping. Rien
+            #     au-dessus d'elle ne sera jamais parcouru : AUCUN passage parent
+            #     ne viendra la débloquer. Seul un passage complet (amorçage ou
+            #     planification) le peut. Dire « en attente du parent » ici
+            #     promettrait une reprise qui n'arrivera jamais.
+            #
+            #   [subpath-cold] un sous-dossier dont le parent n'est pas encore
+            #     indexé. Là, un parcours parent réussi le débloque au cycle
+            #     suivant (cf. clear_cold sur la descendance).
+            if target == source:
+                print("  ⏳ [subpath-cold-root] " + _(
+                      "this mapping has never been fully analysed, deferred: {p}")
+                      .format(p=subpath))
+            else:
+                print("  ⏳ [subpath-cold] " + _("folder not fully indexed yet "
+                      "(cache not built by a full pass), deferred to scheduling: {p}")
+                      .format(p=subpath))
             return "cold"
 
     remote_parent, raison = _remote_parent_for_subpath(mapping, subpath)
