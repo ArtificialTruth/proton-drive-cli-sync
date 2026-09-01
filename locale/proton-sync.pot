@@ -528,12 +528,6 @@ msgid "🔓 Lock released — starting the pass."
 msgstr ""
 
 msgid ""
-"⏳ Proton authentication unavailable (expired session or locked keyring) — "
-"markers kept, no pass launched. Run “proton-drive auth login” (or the “Sign "
-"in to Proton” button) to renew the session."
-msgstr ""
-
-msgid ""
 "⛔ Proton account changed — the cache belongs to the previous account. "
 "Markers kept; prime the cache (or reset the mappings) from the GUI to resume."
 msgstr ""
@@ -3211,4 +3205,33 @@ msgstr ""
 msgid ""
 "    ⏳ cold folder — will be picked up as soon as its parent folder is "
 "indexed"
+msgstr ""
+
+#, python-brace-format
+msgid ""
+"Reset finished (code {c}) — but some files failed; those folders will be "
+"retried"
+msgstr ""
+
+#, python-brace-format
+msgid ""
+"Priming finished (code {c}) — but some files failed; those folders will be "
+"retried"
+msgstr ""
+
+msgid ""
+"⏳ Proton unreachable — markers kept, no pass launched. Either this user's "
+"session is not open (locked keyring), or Proton itself is temporarily "
+"unavailable. If your session is open, wait for the next cycle: a temporary "
+"outage clears on its own. Otherwise run “proton-drive auth login” (or the "
+"“Sign in to Proton” button)."
+msgstr ""
+
+#, python-brace-format
+msgid "this mapping has never been fully analysed, deferred: {p}"
+msgstr ""
+
+msgid ""
+"    ⏳ this mapping has never been fully analysed — run “Prime the cache”, "
+"or wait for the scheduled pass"
 msgstr ""
