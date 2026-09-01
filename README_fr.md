@@ -343,6 +343,10 @@ Ce double niveau est délibéré : le JSON déclare l'intention, la ligne de com
 - `"trash"` (défaut) : envoi à la corbeille Proton, récupérable tant qu'elle n'est pas vidée.
 - `"permanent"` : suppression définitive, irréversible. Le mode du mapping fait foi dès que `--delete` est actif (pas de second flag).
 
+> **Ce réglage ne concerne QUE les fichiers supprimés localement.** Un fichier **modifié**, lui, voit toujours son ancienne version partir à la corbeille, quel que soit le `delete_mode` : c'est le CLI Proton qui l'impose (`--file-conflict-strategy replace` = « mettre à la corbeille le fichier distant, puis envoyer la copie locale »), et aucune de ses stratégies ne supprime définitivement.
+>
+> Conséquence pratique sur un dossier de travail, où les fichiers changent souvent : la corbeille se remplit de versions intermédiaires même en mode définitif, et son **vidage manuel** reste nécessaire (voir « [Vider la corbeille Proton](#vider-la-corbeille-proton) »). Pour éviter cela, `conflict_mode: "revision"` garde l'ancienne version **attachée au fichier** au lieu de l'envoyer à la corbeille.
+
 **Garde-fou de montage (`mount_check.py`)** — la protection clé. Avant toute suppression dans un mapping, le moteur vérifie que la source est « saine » selon son `source_kind` :
 
 - Si `source_kind: "nfs"`, la source DOIT être actuellement portée par un montage réseau vivant (nfs/nfs4). Si le NAS est déconnecté, le chemin retombe sur du local (ext4) et apparaît vide — le moteur détecte l'incohérence et **bloque toute suppression** dans ce mapping (les uploads, eux, continuent). C'est ce qui empêche la catastrophe « NAS tombé → tout semble supprimé → on vide le backup ».

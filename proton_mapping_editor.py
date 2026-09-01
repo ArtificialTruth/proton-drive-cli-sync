@@ -12,7 +12,7 @@ Usage :
     python3 proton_mapping_editor.py                # ouvre un sélecteur de fichier
     python3 proton_mapping_editor.py mappings-user1.json
 """
-__version__ = "1.23.0"   # version propre à CE fichier ; incrémentée quand il change (indépendant de GitHub)
+__version__ = "1.23.1"   # version propre à CE fichier ; incrémentée quand il change (indépendant de GitHub)
 
 import json
 import os
@@ -571,6 +571,12 @@ OPTION_HELP = {
         "The deletion MODE (trash, recoverable until you empty it, or permanent) is "
         "the one defined in each mapping. This box only enables the "
         "propagation; the mapping decides trash or permanent.\n\n"
+        "That mode only covers files DELETED locally. A file you MODIFIED "
+        "always sends its previous version to the trash, whatever the mode: "
+        "the Proton CLI imposes it, and none of its strategies deletes "
+        "permanently. On a working folder the trash therefore fills up with "
+        "intermediate versions even in permanent mode — empty it yourself, or "
+        "set the mapping to keep revisions instead.\n\n"
         "A safety check first verifies that the source is healthy (NAS "
         "mount alive); when in doubt, deletions for that mapping are "
         "disabled and only uploads happen.\n\n"

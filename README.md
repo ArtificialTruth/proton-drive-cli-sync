@@ -341,6 +341,10 @@ This double level is deliberate: the JSON declares the intent, the command line 
 - `"trash"` (default): sent to the Proton trash, recoverable until you empty it.
 - `"permanent"`: definitive deletion, irreversible. The mapping's mode is authoritative once `--delete` is active (no second flag).
 
+> **This setting only covers files deleted locally.** A **modified** file always sends its previous version to the trash, whatever the `delete_mode`: the Proton CLI imposes it (`--file-conflict-strategy replace` = "trash the remote file, then upload the local copy"), and none of its strategies deletes permanently.
+>
+> What this means on a working folder, where files change often: the trash fills up with intermediate versions even in permanent mode, and you still have to **empty it yourself** (see "[Emptying the Proton trash](#emptying-the-proton-trash)"). To avoid that, `conflict_mode: "revision"` keeps the previous version **attached to the file** instead of sending it to the trash.
+
 **Mount safety guard (`mount_check.py`)** — the key protection. Before any deletion in a mapping, the engine verifies that the source is "healthy" according to its `source_kind`:
 
 - If `source_kind: "nfs"`, the source MUST currently be backed by a live network mount (nfs/nfs4). If the NAS is disconnected, the path falls back to local (ext4) and appears empty — the engine detects the inconsistency and **blocks all deletions** in that mapping (uploads continue). That's what prevents the catastrophe "NAS down → everything seems deleted → the backup gets emptied".
