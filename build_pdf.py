@@ -3,7 +3,7 @@
 Réglages validés : corps 13 pt, interligne 1.5, DejaVu Sans ; emoji remplacés
 par des équivalents imprimables (pastilles colorées, glyphes couverts).
 Usage : python3 build_pdf.py SOURCE.md SORTIE.pdf [TITRE]"""
-__version__ = "1.1.0"   # version propre à CE fichier ; incrémentée quand il change (indépendant de GitHub)
+__version__ = "1.2.0"   # version propre à CE fichier ; incrémentée quand il change (indépendant de GitHub)
 
 import sys, subprocess, markdown
 
@@ -40,9 +40,23 @@ for k, v in REPL.items():
 
 # Filet : si une substitution vide a malgré tout laissé une emphase creuse,
 # on la retire AVANT que Markdown ne tente de l'apparier.
+#
+# 1.2.0 — les deux filets étaient trop larges et abîmaient du texte valide :
+#
+#   \*\*\s*\*\*  visait le « **** » laissé par un emoji supprimé, mais \s*
+#   accepte aussi UN espace : « **a** **b** » (deux gras voisins) devenait
+#   « **ab** », les deux mots collés en un seul gras.
+#
+#   (?<!\*)\*\s*\*(?!\*)  visait l'italique creux « * * », mais \s* accepte
+#   ZÉRO espace : l'expression matchait donc « ** » tout court et effaçait
+#   CHAQUE délimiteur de gras du document, silencieusement. Constaté en
+#   production : 794 marqueurs dans chaque README, zéro <strong> en sortie.
+#
+# Correctif : le premier ne retire qu'une suite d'exactement quatre
+# astérisques ; le second exige au moins une espace entre les deux.
 import re as _re
-text = _re.sub(r"\*\*\s*\*\*", "", text)
-text = _re.sub(r"(?<!\*)\*\s*\*(?!\*)", "", text)
+text = _re.sub(r"\*{4}", "", text)
+text = _re.sub(r"(?<!\*)\*[ \t]+\*(?!\*)", "", text)
 
 body = markdown.markdown(text, extensions=["tables", "fenced_code"])
 
