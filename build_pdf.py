@@ -3,7 +3,16 @@
 Réglages validés : corps 13 pt, interligne 1.5, DejaVu Sans ; emoji remplacés
 par des équivalents imprimables (pastilles colorées, glyphes couverts).
 Usage : python3 build_pdf.py SOURCE.md SORTIE.pdf [TITRE]"""
-__version__ = "1.2.0"   # version propre à CE fichier ; incrémentée quand il change (indépendant de GitHub)
+__version__ = "1.3.0"   # version propre à CE fichier ; incrémentée quand il change (indépendant de GitHub)
+#
+# 1.3.0 — les blocs de code passent de 10,5 pt à 9,5 pt, et un contrôle de
+# largeur avertit à la génération quand une ligne de code va être enroulée.
+# Motif : `pre` est en white-space: pre-wrap, donc une ligne trop longue est
+# repliée sans aucun signe visible — et le point de repli devient un vrai
+# retour à la ligne quand on copie la commande depuis le PDF. Constaté le
+# 5 septembre 2026 : « incus export ... $(date +%F).tar.gz » collé en deux
+# morceaux, le « +%F » exécuté comme une commande à part. Le contrôle a
+# ensuite trouvé 24 lignes dans le même cas, réparties sur cinq documents.
 
 import sys, subprocess, markdown
 
@@ -58,6 +67,36 @@ import re as _re
 text = _re.sub(r"\*{4}", "", text)
 text = _re.sub(r"(?<!\*)\*[ \t]+\*(?!\*)", "", text)
 
+# ---------------------------------------------------------------------------
+# Contrôle de largeur des blocs de code.
+#
+# `pre` est en white-space: pre-wrap : une ligne trop longue est ENROULÉE, sans
+# aucun signe visible. À la copie depuis le PDF, le point d'enroulement devient
+# un vrai retour à la ligne — et une commande shell coupée en plein milieu est
+# collée en deux morceaux. Constaté le 5 septembre 2026 sur
+# « incus export ... $(date +%F).tar.gz » (96 caractères), dont le « +%F »
+# s'est retrouvé exécuté comme une commande à part.
+#
+# À 9,5 pt en DejaVu Sans Mono, sur 180 mm de justification moins la marge
+# interne du bloc, il entre environ 86 caractères. Le seuil est fixé un peu
+# en dessous.
+LARGEUR_MAX = 84
+_dans_bloc = False
+_trop_longues = []
+for _no, _ligne in enumerate(text.splitlines(), 1):
+    if _ligne.startswith("```"):
+        _dans_bloc = not _dans_bloc
+        continue
+    if _dans_bloc and len(_ligne) > LARGEUR_MAX:
+        _trop_longues.append((_no, len(_ligne), _ligne))
+
+if _trop_longues:
+    print(f"[!] {len(_trop_longues)} ligne(s) de code dépassent {LARGEUR_MAX} "
+          f"caractères et seront enroulées dans le PDF —\n"
+          f"    le copier-coller les cassera. À raccourcir :", file=sys.stderr)
+    for _no, _n, _ligne in _trop_longues:
+        print(f"    ligne {_no} ({_n} car.) : {_ligne[:70]}…", file=sys.stderr)
+
 body = markdown.markdown(text, extensions=["tables", "fenced_code"])
 
 # Les images sont référencées RELATIVEMENT au document source (docs/images/…).
@@ -79,7 +118,7 @@ h3 {{ font-size: 14.5pt; margin-top: 20px; }}
 code {{ font-family: "DejaVu Sans Mono", monospace; font-size: 11pt;
         background: #f2f2f2; padding: 1px 4px; border-radius: 3px; }}
 pre {{ background: #f2f2f2; padding: 10px; border-radius: 4px;
-       font-size: 10.5pt; line-height: 1.35; white-space: pre-wrap; }}
+       font-size: 9.5pt; line-height: 1.35; white-space: pre-wrap; }}
 pre code {{ background: none; padding: 0; }}
 table {{ border-collapse: collapse; width: 100%; font-size: 11.5pt; }}
 th, td {{ border: 1px solid #999; padding: 5px 8px; text-align: left; }}
