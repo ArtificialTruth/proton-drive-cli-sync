@@ -3,7 +3,30 @@
 Réglages validés : corps 13 pt, interligne 1.5, DejaVu Sans ; emoji remplacés
 par des équivalents imprimables (pastilles colorées, glyphes couverts).
 Usage : python3 build_pdf.py SOURCE.md SORTIE.pdf [TITRE]"""
-__version__ = "1.3.0"   # version propre à CE fichier ; incrémentée quand il change (indépendant de GitHub)
+__version__ = "1.4.0"   # version propre à CE fichier ; incrémentée quand il change (indépendant de GitHub)
+#
+# 1.4.0 — quatre corrections, dont trois mécaniques et une de goût.
+#
+# a) Le sélecteur de variante U+FE0F est retiré AVANT la table REPL. C'est lui,
+#    et non le pictogramme, qui faisait échouer le rendu : « ⚠️ » n'est pas un
+#    caractère mais deux — U+26A0 suivi de U+FE0F — et U+26A0 EST couvert par
+#    DejaVu Sans, tout comme U+2139 (« ℹ »). Le sélecteur envoyait le moteur
+#    chercher une police emoji absente.
+#    Effet de bord bénéfique : plusieurs clés de REPL sont écrites sans le
+#    sélecteur (« ⏸ », « ▶ », « ⏭ », « 🗑 ») et ne reconnaissaient donc PAS la
+#    forme avec sélecteur, la plus courante. Elles fonctionnent maintenant.
+#    Effet de bord constaté avant correctif : « ⚠️ ».replace("⚠", "[!]") rendait
+#    « [!]️ » — le sélecteur restait, orphelin et invisible.
+#
+# b) Texte barré. python-markdown ne rend PAS « ~~texte~~ » sans extension :
+#    les tildes sortaient littéralement dans le PDF. Constaté sur les lignes
+#    de modules retirés de strategie-sauvegarde.md, qui devaient être rayées.
+#
+# c) Sauts de page. Un tableau ou un bloc de commandes pouvait être coupé en
+#    deux, et un titre rester orphelin en bas de page.
+#
+# d) ⚠ ✔ ✘ ℹ à la place de [!] [OK] [X]. Tous couverts par DejaVu une fois
+#    (a) appliqué. CHOIX DE GOÛT, réversible : voir la table REPL.
 #
 # 1.3.0 — les blocs de code passent de 10,5 pt à 9,5 pt, et un contrôle de
 # largeur avertit à la génération quand une ligne de code va être enroulée.
@@ -21,6 +44,12 @@ title = sys.argv[3] if len(sys.argv) > 3 else out.rsplit(".", 1)[0]
 
 text = open(src, encoding="utf-8").read()
 
+# 1.4.0 (a) — retirer le sélecteur de variante emoji AVANT toute substitution.
+# Doit rester la PREMIÈRE opération sur le texte : sans elle, les clés de REPL
+# écrites sans sélecteur ne reconnaissent pas la forme « pictogramme + U+FE0F »,
+# qui est celle que produisent la plupart des éditeurs.
+text = text.replace("️", "")
+
 # Emoji -> équivalents imprimables (DejaVu ne couvre pas les emoji couleur).
 REPL = {
     "🟢": '<span style="color:#2e9e3f">●</span>',
@@ -37,7 +66,12 @@ REPL = {
     # substitution, le symbole se confondait avec celui de « dossier disparu ».
     # ⊘ (U+2298) est couvert par DejaVu Sans — on le garde tel quel.
     "🚫": "⊘", "🗑": "[corbeille]",
-    "✅": "[OK]", "❌": "[X]", "⚠": "[!]",
+    # 1.4.0 (d) — ces trois-là sont désormais rendus par de vrais glyphes.
+    # ✔ U+2714, ✘ U+2718 et ⚠ U+26A0 sont tous couverts par DejaVu Sans une
+    # fois le sélecteur de variante retiré. Pour revenir aux crochets, remettre
+    # simplement :  "✅": "[OK]", "❌": "[X]", "⚠": "[!]",
+    "✅": "✔", "❌": "✘",
+    # « ⚠ » et « ℹ » ne sont plus substitués du tout : ils s'impriment tels quels.
     "🧪": "", "🧹": "", "💾": "", "📂": "", "🔃": "", "🔎": "",
     "▶": ">", "⏭": "»", "⏸": "||", "⏹": "[stop]", "↪": "->",
     # ✓ donnait « OK », d'où des « OK ok » illisibles quand la source cite la
@@ -97,7 +131,20 @@ if _trop_longues:
     for _no, _n, _ligne in _trop_longues:
         print(f"    ligne {_no} ({_n} car.) : {_ligne[:70]}…", file=sys.stderr)
 
-body = markdown.markdown(text, extensions=["tables", "fenced_code"])
+# 1.4.0 (b) — texte barré. python-markdown ne connaît pas « ~~texte~~ » en
+# standard : les tildes ressortaient littéralement. L'extension est facultative
+# pour ne pas transformer une dépendance de confort en dépendance dure ; son
+# absence est signalée, elle n'interrompt pas la génération.
+_EXT = ["tables", "fenced_code"]
+try:
+    import pymdownx.tilde  # noqa: F401  (paquet pip « pymdown-extensions »)
+    _EXT.append("pymdownx.tilde")
+except ImportError:
+    print("[i] pymdown-extensions absent : le texte barré (~~...~~) sortira "
+          "avec ses tildes.\n    Installer avec : pip install pymdown-extensions",
+          file=sys.stderr)
+
+body = markdown.markdown(text, extensions=_EXT)
 
 # Les images sont référencées RELATIVEMENT au document source (docs/images/…).
 # Le HTML intermédiaire étant écrit dans /tmp, ces chemins n'y menaient nulle
@@ -115,12 +162,18 @@ h1 {{ font-size: 21pt; border-bottom: 2px solid #444; padding-bottom: 4px; }}
 h2 {{ font-size: 17pt; border-bottom: 1px solid #999; padding-bottom: 3px;
       margin-top: 26px; }}
 h3 {{ font-size: 14.5pt; margin-top: 20px; }}
+/* 1.4.0 (c) — un titre ne reste pas seul en bas de page, un tableau ou un bloc
+   de commandes n'est pas coupé en deux par un saut de page. */
+h1, h2, h3, h4 {{ page-break-after: avoid; }}
 code {{ font-family: "DejaVu Sans Mono", monospace; font-size: 11pt;
         background: #f2f2f2; padding: 1px 4px; border-radius: 3px; }}
 pre {{ background: #f2f2f2; padding: 10px; border-radius: 4px;
-       font-size: 9.5pt; line-height: 1.35; white-space: pre-wrap; }}
+       font-size: 9.5pt; line-height: 1.35; white-space: pre-wrap;
+       page-break-inside: avoid; }}
 pre code {{ background: none; padding: 0; }}
-table {{ border-collapse: collapse; width: 100%; font-size: 11.5pt; }}
+table {{ border-collapse: collapse; width: 100%; font-size: 11.5pt;
+         page-break-inside: avoid; }}
+del {{ color: #777; }}
 th, td {{ border: 1px solid #999; padding: 5px 8px; text-align: left; }}
 th {{ background: #e8e8e8; }}
 blockquote {{ border-left: 4px solid #bbb; margin-left: 0; padding-left: 12px;
