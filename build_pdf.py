@@ -3,7 +3,29 @@
 Réglages validés : corps 13 pt, interligne 1.5, DejaVu Sans ; emoji remplacés
 par des équivalents imprimables (pastilles colorées, glyphes couverts).
 Usage : python3 build_pdf.py SOURCE.md SORTIE.pdf [TITRE]"""
-__version__ = "1.4.0"   # version propre à CE fichier ; incrémentée quand il change (indépendant de GitHub)
+__version__ = "1.4.2"   # version propre à CE fichier ; incrémentée quand il change (indépendant de GitHub)
+#
+# 1.4.2 — commentaire, aucun changement de comportement. Deux compléments à
+# 1.4.1, qui n'avait pas fini le travail :
+#   1. L'affirmation fausse figurait à DEUX endroits — le journal en tête et le
+#      commentaire en ligne, près du retrait du sélecteur. 1.4.1 n'avait rattrapé
+#      que le premier. Leçon : corriger une formulation, c'est la chercher
+#      partout, pas seulement là où on l'a remarquée.
+#   2. Une question laissée ouverte est tranchée : l'ordre est-il nécessaire ?
+#      Non. Les deux ordres ont été comparés sur un document réel et donnent un
+#      résultat identique au caractère près, aucune clé de REPL ne portant de
+#      sélecteur. Le « AVANT » est une convention et un invariant, pas une
+#      exigence de correction — et il impose au contraire une contrainte sur la
+#      table, notée en corollaire à l'endroit concerné.
+#
+# 1.4.1 — correction d'un COMMENTAIRE de 1.4.0, aucun changement de
+# comportement. Le point (a) affirmait que les clés de REPL écrites sans
+# sélecteur « ne reconnaissaient pas » la forme avec sélecteur. C'est faux :
+# str.replace cherche une SOUS-CHAÎNE, donc « ⏸️ ».replace("⏸", "||") se
+# déclenche bel et bien. Le seul défaut était le sélecteur laissé derrière.
+# Vérifié caractère par caractère sur les cinq clés concernées.
+# La note est conservée plutôt qu'effacée : une explication fausse dans un
+# fichier lu comme référence coûte plus cher qu'un journal un peu long.
 #
 # 1.4.0 — quatre corrections, dont trois mécaniques et une de goût.
 #
@@ -13,10 +35,13 @@ __version__ = "1.4.0"   # version propre à CE fichier ; incrémentée quand il 
 #    DejaVu Sans, tout comme U+2139 (« ℹ »). Le sélecteur envoyait le moteur
 #    chercher une police emoji absente.
 #    Effet de bord bénéfique : plusieurs clés de REPL sont écrites sans le
-#    sélecteur (« ⏸ », « ▶ », « ⏭ », « 🗑 ») et ne reconnaissaient donc PAS la
-#    forme avec sélecteur, la plus courante. Elles fonctionnent maintenant.
-#    Effet de bord constaté avant correctif : « ⚠️ ».replace("⚠", "[!]") rendait
-#    « [!]️ » — le sélecteur restait, orphelin et invisible.
+#    sélecteur (« ⏸ », « ▶ », « ⏭ », « 🗑 »). Elles se déclenchaient bien sur la
+#    forme AVEC sélecteur — str.replace cherche une sous-chaîne, pas un
+#    caractère entier — mais laissaient le U+FE0F derrière, collé au
+#    remplacement : « ⚠️ ».replace("⚠", "[!]") rendait « [!]️ », un sélecteur
+#    orphelin et invisible. Le retrait préalable supprime ce résidu.
+#    (Formulation corrigée en 1.4.1 ; la version 1.4.0 disait à tort que ces
+#     clés ne se déclenchaient pas du tout.)
 #
 # b) Texte barré. python-markdown ne rend PAS « ~~texte~~ » sans extension :
 #    les tildes sortaient littéralement dans le PDF. Constaté sur les lignes
@@ -44,10 +69,17 @@ title = sys.argv[3] if len(sys.argv) > 3 else out.rsplit(".", 1)[0]
 
 text = open(src, encoding="utf-8").read()
 
-# 1.4.0 (a) — retirer le sélecteur de variante emoji AVANT toute substitution.
-# Doit rester la PREMIÈRE opération sur le texte : sans elle, les clés de REPL
-# écrites sans sélecteur ne reconnaissent pas la forme « pictogramme + U+FE0F »,
-# qui est celle que produisent la plupart des éditeurs.
+# 1.4.0 (a) — retirer le sélecteur de variante emoji U+FE0F.
+# Les clés de REPL sont écrites sans sélecteur. Elles se déclenchent bien sur la
+# forme « pictogramme + U+FE0F » — str.replace cherche une sous-chaîne — mais
+# laissent le sélecteur collé au remplacement, orphelin et invisible.
+# Placé en tête par CONVENTION, pas par nécessité : vérifié en comparant les deux
+# ordres sur un document réel, le retrait après la table donne un résultat
+# identique au caractère près. L'intérêt est l'invariant — passé cette ligne, le
+# texte ne porte plus aucun sélecteur et tout ce qui suit travaille sur une forme
+# unique, y compris le comptage de largeur des blocs de code.
+# Corollaire : ne jamais ajouter à REPL une clé PORTANT un sélecteur ; le retrait
+# préalable la rendrait inopérante.
 text = text.replace("️", "")
 
 # Emoji -> équivalents imprimables (DejaVu ne couvre pas les emoji couleur).
