@@ -3,7 +3,39 @@
 Réglages validés : corps 13 pt, interligne 1.5, DejaVu Sans ; emoji remplacés
 par des équivalents imprimables (pastilles colorées, glyphes couverts).
 Usage : python3 build_pdf.py SOURCE.md SORTIE.pdf [TITRE]"""
-__version__ = "1.4.2"   # version propre à CE fichier ; incrémentée quand il change (indépendant de GitHub)
+__version__ = "1.5.0"   # version propre à CE fichier ; incrémentée quand il change (indépendant de GitHub)
+#
+# 1.5.0 — un bloc de code plus haut qu'une demi-page ne repousse plus la page.
+#
+# 1.4.0 (c) avait posé « pre { page-break-inside: avoid } » pour qu'un bloc de
+# commandes ne soit jamais coupé en deux. La règle est juste pour la quasi-
+# totalité des blocs, mais elle est absolue : un bloc trop grand pour la place
+# restante bascule ENTIER à la page suivante, laissant derrière lui une page
+# aux trois quarts blanche, souvent précédée du titre resté seul en haut.
+#
+# Constaté le 7 septembre 2026 dans le guide de l'hôte : le bloc des huit
+# partages Samba a vidé la page 8, sous le titre « Les partages ».
+#
+# Le CSS ne sait pas compter des lignes : les blocs sont donc mesurés à la
+# génération et ceux qui dépassent HAUTEUR_MAX_BLOC reçoivent une classe qui
+# les rend de nouveau coupables. Au-delà de cette taille, un bloc n'est plus
+# une commande qu'on copie d'un trait mais un fichier de configuration — une
+# coupure y est moins gênante qu'une page blanche.
+#
+# ⚠ La hauteur se mesure APRÈS ENROULEMENT, pas en nombre de lignes source.
+# `pre` étant en pre-wrap, une ligne de 112 caractères en occupe deux à
+# l'écran : compter les lignes du source sous-estime la hauteur réelle, et
+# c'est justement sur les documents riches en commandes longues — ceux qui
+# produisent le défaut — que l'écart est le plus grand. D'où le croisement
+# avec LARGEUR_MAX, déjà présent pour le contrôle de largeur : les deux
+# constantes décrivent la même boîte, l'une en largeur, l'autre en hauteur.
+#
+# Ce réglage ne corrige PAS la cause du titre orphelin :
+# « page-break-after: avoid » est mal appliqué par le moteur WebKit de
+# wkhtmltopdf. Il la rend sans conséquence, le début du bloc suivant désormais
+# son titre. Le même symptôme reviendrait sur un TABLEAU trop haut : ceux-ci
+# portent encore « page-break-inside: avoid » sans exception de taille, faute
+# d'un cas réel pour l'éprouver.
 #
 # 1.4.2 — commentaire, aucun changement de comportement. Deux compléments à
 # 1.4.1, qui n'avait pas fini le travail :
@@ -178,6 +210,53 @@ except ImportError:
 
 body = markdown.markdown(text, extensions=_EXT)
 
+# ---------------------------------------------------------------------------
+# 1.5.0 — rendre coupables les blocs de code trop hauts.
+#
+# À 9,5 pt et interligne 1,35, une ligne occupe environ 4,5 mm ; il en entre une
+# soixantaine sur une page A4 moins ses marges. Un bloc de 30 lignes fait donc
+# près d'une demi-page : s'il bascule, la page perdue reste acceptable. Au-delà,
+# elle devient visible.
+#
+# La hauteur est comptée APRÈS ENROULEMENT — une ligne plus large que
+# LARGEUR_MAX en occupe plusieurs à l'écran. Compter les lignes du source
+# sous-estimerait les blocs riches en commandes longues, c'est-à-dire
+# précisément ceux qui produisent le défaut.
+HAUTEUR_MAX_BLOC = 30
+
+import html as _html
+import math as _math
+
+
+def _hauteur_affichee(contenu):
+    """Nombre de lignes qu'occupera ce contenu une fois enroulé à LARGEUR_MAX."""
+    return sum(max(1, _math.ceil(len(ligne) / LARGEUR_MAX))
+               for ligne in contenu.splitlines())
+
+
+_blocs_longs = []
+
+
+def _marquer_blocs_longs(m):
+    # Le <pre> contient un <code> : retirer les balises et dé-échapper les
+    # entités, sans quoi « &lt; » compterait pour quatre caractères au lieu d'un.
+    texte_brut = _html.unescape(_re.sub(r"<[^>]+>", "", m.group(1)))
+    hauteur = _hauteur_affichee(texte_brut)
+    if hauteur > HAUTEUR_MAX_BLOC:
+        _blocs_longs.append(hauteur)
+        return f'<pre class="long">{m.group(1)}</pre>'
+    return m.group(0)
+
+
+body = _re.sub(r"<pre>(.*?)</pre>", _marquer_blocs_longs, body, flags=_re.S)
+
+if _blocs_longs:
+    print(f"[i] {len(_blocs_longs)} bloc(s) de code dépassent "
+          f"{HAUTEUR_MAX_BLOC} lignes une fois enroulés "
+          f"({', '.join(str(n) for n in _blocs_longs)}) —\n"
+          f"    ils pourront être coupés par un saut de page, plutôt que de "
+          f"laisser une page blanche.", file=sys.stderr)
+
 # Les images sont référencées RELATIVEMENT au document source (docs/images/…).
 # Le HTML intermédiaire étant écrit dans /tmp, ces chemins n'y menaient nulle
 # part : les quatre captures du README sortaient en cadres vides. Une balise
@@ -202,6 +281,10 @@ code {{ font-family: "DejaVu Sans Mono", monospace; font-size: 11pt;
 pre {{ background: #f2f2f2; padding: 10px; border-radius: 4px;
        font-size: 9.5pt; line-height: 1.35; white-space: pre-wrap;
        page-break-inside: avoid; }}
+/* 1.5.0 — au-delà de HAUTEUR_MAX_BLOC lignes affichées, un bloc redevient
+   coupable : le garder entier le ferait basculer d'un seul tenant et
+   laisserait une page blanche derrière lui. */
+pre.long {{ page-break-inside: auto; }}
 pre code {{ background: none; padding: 0; }}
 table {{ border-collapse: collapse; width: 100%; font-size: 11.5pt;
          page-break-inside: avoid; }}
